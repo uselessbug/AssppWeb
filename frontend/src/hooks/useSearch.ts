@@ -2,30 +2,79 @@ import { create } from "zustand";
 import type { Software } from "../types";
 import { searchApps, lookupApp } from "../api/search";
 
+export type SearchEntity = "iPhone" | "iPad";
+
+const SEARCH_COUNTRY_KEY = "asspp-search-country";
+const SEARCH_ENTITY_KEY = "asspp-search-entity";
+
+function normalizeCountry(value: string | null | undefined): string {
+  const country = value?.trim().toUpperCase() ?? "";
+  return /^[A-Z]{2}$/.test(country) ? country : "";
+}
+
+function normalizeEntity(value: string | null | undefined): SearchEntity {
+  return value === "iPad" ? "iPad" : "iPhone";
+}
+
+function readStoredCountry(): string {
+  if (typeof localStorage === "undefined") return "";
+  return normalizeCountry(localStorage.getItem(SEARCH_COUNTRY_KEY));
+}
+
+function readStoredEntity(): SearchEntity {
+  if (typeof localStorage === "undefined") return "iPhone";
+  return normalizeEntity(localStorage.getItem(SEARCH_ENTITY_KEY));
+}
+
+function writeStoredCountry(country: string) {
+  if (typeof localStorage === "undefined") return;
+  const normalized = normalizeCountry(country);
+  if (normalized) localStorage.setItem(SEARCH_COUNTRY_KEY, normalized);
+  else localStorage.removeItem(SEARCH_COUNTRY_KEY);
+}
+
+function writeStoredEntity(entity: SearchEntity) {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(SEARCH_ENTITY_KEY, entity);
+}
+
 interface SearchState {
   term: string;
   country: string;
-  entity: string;
+  entity: SearchEntity;
   results: Software[];
   loading: boolean;
   error: string | null;
   setSearchParam: (
     param: Partial<Pick<SearchState, "term" | "country" | "entity">>,
   ) => void;
-  search: (term: string, country: string, entity: string) => Promise<void>;
+  initializeCountry: (fallbackCountry: string) => void;
+  search: (term: string, country: string, entity: SearchEntity) => Promise<void>;
   lookup: (bundleId: string, country: string) => Promise<void>;
-  clear: () => void; // 新增：清空搜索状态的方法
+  clear: () => void;
 }
 
-export const useSearch = create<SearchState>((set) => ({
+export const useSearch = create<SearchState>((set, get) => ({
   term: "",
-  country: "",
-  entity: "",
+  country: readStoredCountry(),
+  entity: readStoredEntity(),
   results: [],
   loading: false,
   error: null,
-  setSearchParam: (param) => set((state) => ({ ...state, ...param })),
+  setSearchParam: (param) => {
+    if (param.country !== undefined) writeStoredCountry(param.country);
+    if (param.entity !== undefined) writeStoredEntity(param.entity);
+    set((state) => ({ ...state, ...param }));
+  },
+  initializeCountry: (fallbackCountry) => {
+    if (get().country) return;
+    const country = normalizeCountry(fallbackCountry) || "US";
+    writeStoredCountry(country);
+    set({ country });
+  },
   search: async (term, country, entity) => {
+    writeStoredCountry(country);
+    writeStoredEntity(entity);
     set({ loading: true, error: null, term, country, entity });
     try {
       const apps = await searchApps(term, country, entity);
@@ -53,6 +102,5 @@ export const useSearch = create<SearchState>((set) => ({
       set({ loading: false });
     }
   },
-  // 清空关键词、结果和错误信息，但保留选择的国家和设备类型（作为用户偏好）
   clear: () => set({ term: "", results: [], error: null }),
 }));

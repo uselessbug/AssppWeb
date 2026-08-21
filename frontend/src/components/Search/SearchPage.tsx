@@ -6,18 +6,15 @@ import AppIcon from "../common/AppIcon";
 import CountrySelect from "../common/CountrySelect";
 import EmptyState from "../common/EmptyState";
 import Spinner from "../common/Spinner";
-import { useSearch } from "../../hooks/useSearch";
+import { useSearch, type SearchEntity } from "../../hooks/useSearch";
 import { useAccounts } from "../../hooks/useAccounts";
-import { useSettingsStore } from "../../store/settings";
 import { useToastStore } from "../../store/toast";
 import { firstAccountCountry } from "../../utils/account";
 import { countryCodeMap, storeIdToCountry } from "../../apple/config";
 
 export default function SearchPage() {
   const { t } = useTranslation();
-  const { defaultCountry, defaultEntity } = useSettingsStore();
-  const { accounts } = useAccounts();
-  const initialCountry = firstAccountCountry(accounts) ?? defaultCountry;
+  const { accounts, loading: accountsLoading } = useAccounts();
   const addToast = useToastStore((s) => s.addToast);
 
   const {
@@ -29,6 +26,7 @@ export default function SearchPage() {
     error,
     search,
     setSearchParam,
+    initializeCountry,
   } = useSearch();
 
   useEffect(() => {
@@ -38,12 +36,13 @@ export default function SearchPage() {
   }, [error, addToast]);
 
   useEffect(() => {
-    if (!country && initialCountry) setSearchParam({ country: initialCountry });
-    if (!entity && defaultEntity) setSearchParam({ entity: defaultEntity });
-  }, [country, initialCountry, entity, defaultEntity, setSearchParam]);
+    if (accountsLoading) return;
+    initializeCountry(firstAccountCountry(accounts) ?? "US");
+  }, [accounts, accountsLoading, initializeCountry]);
 
-  const activeCountry = country || initialCountry;
-  const activeEntity = entity || defaultEntity;
+  const fallbackCountry = firstAccountCountry(accounts) ?? "US";
+  const activeCountry = country || fallbackCountry;
+  const activeEntity = entity || "iPhone";
 
   const availableCountryCodes = Array.from(
     new Set(
@@ -99,7 +98,9 @@ export default function SearchPage() {
           />
           <select
             value={activeEntity}
-            onChange={(e) => setSearchParam({ entity: e.target.value })}
+            onChange={(e) =>
+              setSearchParam({ entity: e.target.value as SearchEntity })
+            }
             aria-label={t("settings.defaults.entity")}
             className="min-h-11 w-1/2 truncate rounded-xl border-0 bg-gray-100 px-3 py-2 text-base text-gray-900 focus:ring-2 focus:ring-blue-500/40 dark:bg-gray-800 dark:text-white"
           >

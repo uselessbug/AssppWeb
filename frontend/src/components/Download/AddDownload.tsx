@@ -6,7 +6,6 @@ import CountrySelect from "../common/CountrySelect";
 import Spinner from "../common/Spinner";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
-import { useSettingsStore } from "../../store/settings";
 import { useToastStore } from "../../store/toast";
 import { lookupApp } from "../../api/search";
 import { listVersions } from "../../apple/versionFinder";
@@ -17,7 +16,6 @@ import type { Software } from "../../types";
 
 export default function AddDownload() {
   const { accounts, updateAccount } = useAccounts();
-  const { defaultCountry } = useSettingsStore();
   const { t } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const {
@@ -28,7 +26,7 @@ export default function AddDownload() {
   } = useDownloadAction();
 
   const [bundleId, setBundleId] = useState("");
-  const [country, setCountry] = useState(defaultCountry);
+  const [country, setCountry] = useState("US");
   const [countryTouched, setCountryTouched] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState("");
   const [app, setApp] = useState<Software | null>(null);
@@ -73,15 +71,12 @@ export default function AddDownload() {
   }, [filteredAccounts, selectedAccount]);
 
   const account = accounts.find((a) => a.email === selectedAccount);
-  const autoCountry = firstAccountCountry(accounts);
+  const autoCountry = firstAccountCountry(accounts) ?? "US";
 
   useEffect(() => {
-    if (countryTouched) return;
-    const nextCountry = autoCountry ?? defaultCountry;
-    if (nextCountry && nextCountry !== country) {
-      setCountry(nextCountry);
-    }
-  }, [autoCountry, country, countryTouched, defaultCountry]);
+    if (countryTouched || autoCountry === country) return;
+    setCountry(autoCountry);
+  }, [autoCountry, country, countryTouched]);
 
   async function handleLookup(e: React.FormEvent) {
     e.preventDefault();

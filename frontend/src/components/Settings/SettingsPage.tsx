@@ -4,11 +4,9 @@ import PageContainer from "../Layout/PageContainer";
 import Modal from "../common/Modal";
 import ConfirmModal from "../common/ConfirmModal";
 import { useAccountsStore } from "../../store/accounts";
-import { useSettingsStore, type EntityType } from "../../store/settings";
 import { useToastStore } from "../../store/toast";
 import { apiGet } from "../../api/client";
 import { encryptData, decryptData } from "../../utils/crypto";
-import { countryCodeMap } from "../../apple/config";
 import type { Account } from "../../types";
 
 interface ServerInfo {
@@ -25,11 +23,6 @@ interface ServerInfo {
   downloadThreads?: number;
 }
 
-const entityTypes: { value: EntityType; label: string }[] = [
-  { value: "iPhone", label: "iPhone" },
-  { value: "iPad", label: "iPad" },
-];
-
 const cardClass =
   "min-w-0 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 sm:p-6";
 const fieldClass =
@@ -40,12 +33,6 @@ const modalFieldClass =
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { accounts, addAccount, updateAccount } = useAccountsStore();
-  const {
-    defaultCountry,
-    defaultEntity,
-    setDefaultCountry,
-    setDefaultEntity,
-  } = useSettingsStore();
   const addToast = useToastStore((s) => s.addToast);
 
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null);
@@ -69,10 +56,6 @@ export default function SettingsPage() {
       .then(setServerInfo)
       .catch(() => setServerInfo(null));
   }, []);
-
-  const sortedCountries = Object.keys(countryCodeMap).sort((a, b) =>
-    t(`countries.${a}`, a).localeCompare(t(`countries.${b}`, b)),
-  );
 
   async function handleExport() {
     if (exportPassword !== exportConfirmPassword) {
@@ -203,52 +186,6 @@ export default function SettingsPage() {
             <option value="ko">한국어</option>
             <option value="ru">Русский</option>
           </select>
-        </section>
-
-        <section className={cardClass}>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
-            {t("settings.defaults.title")}
-          </h2>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="country" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("settings.defaults.country")}
-              </label>
-              <select
-                id="country"
-                value={defaultCountry}
-                onChange={(e) => {
-                  setDefaultCountry(e.target.value);
-                  addToast(t("settings.defaults.countryChanged"), "success");
-                }}
-                className={fieldClass}
-              >
-                {sortedCountries.map((code) => (
-                  <option key={code} value={code}>
-                    {t(`countries.${code}`, code)} ({code})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="entity" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("settings.defaults.entity")}
-              </label>
-              <select
-                id="entity"
-                value={defaultEntity}
-                onChange={(e) => {
-                  setDefaultEntity(e.target.value as EntityType);
-                  addToast(t("settings.defaults.entityChanged"), "success");
-                }}
-                className={fieldClass}
-              >
-                {entityTypes.map((et) => (
-                  <option key={et.value} value={et.value}>{et.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
         </section>
 
         <section className={cardClass}>
