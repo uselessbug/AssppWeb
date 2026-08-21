@@ -1,3 +1,4 @@
+import { apiPost } from "../api/client";
 import type { Account, Software, VersionMetadata } from "../types";
 import { appleRequest } from "./request";
 import { buildPlist, parsePlist } from "./plist";
@@ -7,6 +8,11 @@ import {
   redownloadEndpoint,
   volumeStoreEndpoint,
 } from "./config";
+
+interface RemoteVersionMetadata {
+  displayVersion: string;
+  releaseDate: string;
+}
 
 export async function getVersionMetadata(
   account: Account,
@@ -66,8 +72,8 @@ export async function getVersionMetadata(
 
     const dict = parsePlist(response.body) as Record<string, any>;
 
-    // volumeStore intermittently returns 5002; retry once via the redownload
-    // dispatch endpoint, which serves the same payload.
+    // Preserve upstream ApplePackage 1.2.7 behavior: volumeStore can return
+    // failureType 5002, in which case retry once via the redownload endpoint.
     if (
       String(dict.failureType ?? "") === RETRYABLE_FAILURE_TYPE &&
       !triedRedownload
@@ -85,32 +91,20 @@ export async function getVersionMetadata(
       throw new Error("No items in response");
     }
 
-    const item = songList[0];
-    const itemMetadata = item.metadata as Record<string, any>;
-    if (!itemMetadata) {
-      throw new Error("Missing metadata");
+    const downloadURL = songList[0].URL as string | undefined;
+    if (!downloadURL) {
+      throw new Error("Missing download URL");
     }
 
-    const bundleShortVersionString =
-      itemMetadata.bundleShortVersionString as string;
-    if (!bundleShortVersionString) {
-      throw new Error("Missing bundleShortVersionString");
-    }
-
-    const rawReleaseDate = itemMetadata.releaseDate;
-    if (!rawReleaseDate) {
-      throw new Error("Missing releaseDate");
-    }
-    const releaseDate =
-      rawReleaseDate instanceof Date
-        ? rawReleaseDate.toISOString()
-        : String(rawReleaseDate);
+    // Historical App Store response metadata can be stale. Use the selected
+    // IPA itself as the source of truth and only fetch the ZIP ranges needed
+    // for Payload/*.app/Info.plist on the backend.
+    const metadata = await apiPost<RemoteVersionMetadata>("/api/version-metadata", {
+      downloadURL,
+    });
 
     return {
-      metadata: {
-        displayVersion: bundleShortVersionString,
-        releaseDate,
-      },
+      metadata,
       updatedCookies: cookies,
     };
   }
