@@ -230,8 +230,10 @@ describe('ProductDetail download action', () => {
     const disabledByCommit: boolean[] = [];
 
     renderProductDetail(() => {
-      const button = document.querySelector<HTMLButtonElement>(
-        'button[aria-busy]',
+      const button = Array.from(
+        document.querySelectorAll<HTMLButtonElement>('button'),
+      ).find((candidate) =>
+        candidate.textContent?.includes('search.product.download'),
       );
       if (button) disabledByCommit.push(button.disabled);
     });
@@ -269,6 +271,12 @@ describe('ProductDetail download action', () => {
     for (const action of [licenseButton, downloadButton, versionLink]) {
       expect(action).toHaveClass('w-full', 'min-w-0');
     }
+    expect(licenseButton).toHaveClass(
+      'inline-flex',
+      'items-center',
+      'justify-center',
+      'gap-1.5',
+    );
   });
 
   it('simulates a preview download without calling real services', async () => {

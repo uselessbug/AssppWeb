@@ -3,6 +3,7 @@ import { useParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import AppIcon from "../common/AppIcon";
+import Spinner from "../common/Spinner";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
 import { listVersions } from "../../apple/versionFinder";
@@ -146,8 +147,10 @@ export default function VersionHistory() {
               <button
                 onClick={handleLoadVersions}
                 disabled={loading || !account}
-                className="w-full shrink-0 whitespace-normal rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 sm:w-auto sm:whitespace-nowrap"
+                aria-busy={loading}
+                className="inline-flex w-full shrink-0 items-center justify-center gap-2 whitespace-normal rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 sm:w-auto sm:whitespace-nowrap"
               >
+                {loading && <Spinner />}
                 {loading
                   ? t("search.versions.loading")
                   : t("search.versions.load")}
@@ -186,7 +189,11 @@ export default function VersionHistory() {
                       </button>
                     )}
                     {isLoadingMeta && (
-                      <span className="text-xs text-gray-400 [overflow-wrap:anywhere] dark:text-gray-500">
+                      <span
+                        className="inline-flex items-center gap-1.5 text-xs text-gray-400 [overflow-wrap:anywhere] dark:text-gray-500"
+                        role="status"
+                      >
+                        <Spinner />
                         {t("search.versions.loading")}
                       </span>
                     )}
@@ -194,8 +201,10 @@ export default function VersionHistory() {
                   <button
                     onClick={() => handleDownloadVersion(versionId)}
                     disabled={isDownloading || downloadingVersion !== null}
-                    className="max-w-[45%] shrink-0 rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-medium leading-tight text-white [overflow-wrap:anywhere] transition-colors hover:bg-blue-700 disabled:opacity-50"
+                    aria-busy={isDownloading}
+                    className="inline-flex max-w-[45%] shrink-0 items-center justify-center gap-1.5 rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-medium leading-tight text-white [overflow-wrap:anywhere] transition-colors hover:bg-blue-700 disabled:opacity-50"
                   >
+                    {isDownloading && <Spinner />}
                     {isDownloading
                       ? t("search.versions.downloading")
                       : t("search.versions.download")}

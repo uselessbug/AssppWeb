@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import AppIcon from "../common/AppIcon";
 import CountrySelect from "../common/CountrySelect";
+import Spinner from "../common/Spinner";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
 import { useSettingsStore } from "../../store/settings";
@@ -163,8 +164,10 @@ export default function AddDownload() {
               <button
                 type="submit"
                 disabled={isLoading || !bundleId.trim()}
-                className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-blue-600 px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
+                aria-busy={loadingAction === "lookup"}
+                className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-full bg-blue-600 px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
               >
+                {loadingAction === "lookup" && <Spinner />}
                 {loadingAction === "lookup"
                   ? t("downloads.add.lookingUp")
                   : t("downloads.add.lookup")}
@@ -282,8 +285,10 @@ export default function AddDownload() {
                 <button
                   onClick={handleGetLicense}
                   disabled={isLoading || !account}
-                  className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:bg-blue-950/60 dark:text-blue-400"
+                  aria-busy={loadingAction === "license"}
+                  className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:bg-blue-950/60 dark:text-blue-400"
                 >
+                  {loadingAction === "license" && <Spinner />}
                   {loadingAction === "license"
                     ? t("downloads.add.processing")
                     : t("downloads.add.getLicense")}
@@ -293,8 +298,10 @@ export default function AddDownload() {
                 <button
                   onClick={handleLoadVersions}
                   disabled={isLoading || !account}
-                  className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  aria-busy={loadingAction === "versions"}
+                  className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
+                  {loadingAction === "versions" && <Spinner />}
                   {loadingAction === "versions"
                     ? t("downloads.add.processing")
                     : t("downloads.add.selectVersion")}
@@ -303,8 +310,10 @@ export default function AddDownload() {
               <button
                 onClick={handleDownload}
                 disabled={isLoading || !account}
-                className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                aria-busy={loadingAction === "download"}
+                className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
               >
+                {loadingAction === "download" && <Spinner />}
                 {loadingAction === "download"
                   ? t("downloads.add.processing")
                   : t("downloads.add.download")}

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import AppIcon from "../common/AppIcon";
 import CountrySelect from "../common/CountrySelect";
+import Spinner from "../common/Spinner";
 import { useSearch } from "../../hooks/useSearch";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useSettingsStore } from "../../store/settings";
@@ -80,8 +81,10 @@ export default function SearchPage() {
           <button
             type="submit"
             disabled={loading || !term.trim()}
-            className="min-h-11 whitespace-nowrap rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-busy={loading}
+            className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
+            {loading && <Spinner />}
             {loading ? t("search.searching") : t("search.button")}
           </button>
         </div>

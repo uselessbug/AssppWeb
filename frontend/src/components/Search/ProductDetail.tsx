@@ -211,8 +211,10 @@ export default function ProductDetail() {
                   type="button"
                   onClick={handlePurchase}
                   disabled={loadingAction !== null}
-                  className="inline-flex min-h-10 w-full min-w-0 items-center justify-center rounded-full bg-blue-50 px-2 py-2 text-center text-xs font-semibold leading-tight text-blue-600 transition-colors hover:bg-blue-100 disabled:opacity-50 dark:bg-blue-950/60 dark:text-blue-400 dark:hover:bg-blue-950 sm:px-5 sm:text-sm"
+                  aria-busy={loadingAction === "purchase"}
+                  className="inline-flex min-h-10 w-full min-w-0 items-center justify-center gap-1.5 rounded-full bg-blue-50 px-2 py-2 text-center text-xs font-semibold leading-tight text-blue-600 transition-colors hover:bg-blue-100 disabled:opacity-50 dark:bg-blue-950/60 dark:text-blue-400 dark:hover:bg-blue-950 sm:gap-2 sm:px-5 sm:text-sm"
                 >
+                  {loadingAction === "purchase" && <Spinner />}
                   {loadingAction === "purchase"
                     ? t("search.product.processing")
                     : t("search.product.getLicense")}
