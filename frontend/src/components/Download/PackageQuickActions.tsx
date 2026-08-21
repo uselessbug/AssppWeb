@@ -29,7 +29,7 @@ export default function PackageQuickActions({
     size === 'compact'
       ? 'min-h-10 px-2 text-xs'
       : 'min-h-11 px-3 text-sm';
-  const secondaryButton = `${buttonSize} inline-flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white font-medium text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-800`;
+  const secondaryButton = `${buttonSize} inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full bg-gray-100 font-semibold text-gray-700 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700`;
 
   function showPreviewNotice() {
     addToast(
@@ -129,7 +129,7 @@ export default function PackageQuickActions({
       <a
         href={installInfo.installUrl}
         onClick={handleInstall}
-        className={`${buttonSize} inline-flex min-w-0 items-center justify-center gap-1.5 rounded-lg bg-blue-600 font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900`}
+        className={`${buttonSize} inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full bg-blue-600 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900`}
         aria-label={t('downloads.package.install')}
       >
         <InstallIcon />
@@ -153,7 +153,7 @@ export default function PackageQuickActions({
             role="tooltip"
             className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 opacity-0 transition-opacity duration-200 md:invisible md:block md:group-hover:visible md:group-hover:opacity-100 md:group-focus-within:visible md:group-focus-within:opacity-100"
           >
-            <div className="flex flex-col items-center rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-xl dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+            <div className="flex flex-col items-center rounded-2xl border border-gray-200 bg-white p-2 text-gray-500 shadow-xl dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
               <QRCodeSVG
                 value={installInfo.installUrl}
                 size={128}

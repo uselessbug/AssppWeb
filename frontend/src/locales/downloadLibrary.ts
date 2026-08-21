@@ -1,0 +1,118 @@
+export const downloadLibraryTranslations = {
+  "en-US": {
+    searchDownloaded: "Search downloads",
+    manage: "Manage",
+    doneManaging: "Done",
+    selectedCount: "{{count}} selected",
+    selectAll: "Select all",
+    deselectAll: "Deselect all",
+    selectItem: "Select {{name}}",
+    deselectItem: "Deselect {{name}}",
+    deleteSelected: "Delete {{count}} selected",
+    batchDeleteConfirm:
+      "Delete {{count}} selected download(s)? This cannot be undone.",
+    batchDeleteConfirmActive:
+      "Delete {{count}} selected download(s)? {{activeCount}} active download(s) will be cancelled. This cannot be undone.",
+    batchDeleteSuccess: "Deleted {{count}} download(s).",
+    batchDeleteFailed: "Some downloads could not be deleted.",
+    noSearchResults: "No matching downloads",
+    noSearchResultsDesc:
+      "Try a different app name, developer, Bundle ID, or version.",
+  },
+  "zh-CN": {
+    searchDownloaded: "搜索下载项",
+    manage: "管理",
+    doneManaging: "完成",
+    selectedCount: "已选择 {{count}} 项",
+    selectAll: "全选",
+    deselectAll: "取消全选",
+    selectItem: "选择 {{name}}",
+    deselectItem: "取消选择 {{name}}",
+    deleteSelected: "删除所选 {{count}} 项",
+    batchDeleteConfirm: "确定删除所选 {{count}} 个项目吗？此操作无法撤销。",
+    batchDeleteConfirmActive:
+      "确定删除所选 {{count}} 个项目吗？其中 {{activeCount}} 个项目正在处理，删除后对应下载将被取消。此操作无法撤销。",
+    batchDeleteSuccess: "已删除 {{count}} 个下载项目。",
+    batchDeleteFailed: "部分下载项目删除失败。",
+    noSearchResults: "没有找到匹配的下载项",
+    noSearchResultsDesc: "请尝试其他应用名称、开发者、Bundle ID 或版本号。",
+  },
+  "zh-TW": {
+    searchDownloaded: "搜尋下載項目",
+    manage: "管理",
+    doneManaging: "完成",
+    selectedCount: "已選取 {{count}} 項",
+    selectAll: "全選",
+    deselectAll: "取消全選",
+    selectItem: "選取 {{name}}",
+    deselectItem: "取消選取 {{name}}",
+    deleteSelected: "刪除所選 {{count}} 項",
+    batchDeleteConfirm: "確定刪除所選 {{count}} 個項目嗎？此操作無法復原。",
+    batchDeleteConfirmActive:
+      "確定刪除所選 {{count}} 個項目嗎？其中 {{activeCount}} 個項目正在處理，刪除後對應下載將被取消。此操作無法復原。",
+    batchDeleteSuccess: "已刪除 {{count}} 個下載項目。",
+    batchDeleteFailed: "部分下載項目刪除失敗。",
+    noSearchResults: "找不到符合的下載項目",
+    noSearchResultsDesc: "請嘗試其他 App 名稱、開發者、Bundle ID 或版本號。",
+  },
+  ja: {
+    searchDownloaded: "ダウンロードを検索",
+    manage: "管理",
+    doneManaging: "完了",
+    selectedCount: "{{count}}件選択中",
+    selectAll: "すべて選択",
+    deselectAll: "すべて解除",
+    selectItem: "{{name}}を選択",
+    deselectItem: "{{name}}の選択を解除",
+    deleteSelected: "選択した{{count}}件を削除",
+    batchDeleteConfirm:
+      "選択した{{count}}件を削除しますか？この操作は取り消せません。",
+    batchDeleteConfirmActive:
+      "選択した{{count}}件を削除しますか？処理中の{{activeCount}}件はダウンロードがキャンセルされます。この操作は取り消せません。",
+    batchDeleteSuccess: "{{count}}件のダウンロードを削除しました。",
+    batchDeleteFailed: "一部のダウンロードを削除できませんでした。",
+    noSearchResults: "一致するダウンロードがありません",
+    noSearchResultsDesc:
+      "別のアプリ名、開発者、Bundle ID、またはバージョンをお試しください。",
+  },
+  ko: {
+    searchDownloaded: "다운로드 검색",
+    manage: "관리",
+    doneManaging: "완료",
+    selectedCount: "{{count}}개 선택됨",
+    selectAll: "전체 선택",
+    deselectAll: "전체 선택 해제",
+    selectItem: "{{name}} 선택",
+    deselectItem: "{{name}} 선택 해제",
+    deleteSelected: "선택한 {{count}}개 삭제",
+    batchDeleteConfirm:
+      "선택한 {{count}}개 항목을 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    batchDeleteConfirmActive:
+      "선택한 {{count}}개 항목을 삭제할까요? 처리 중인 {{activeCount}}개 다운로드는 취소됩니다. 이 작업은 되돌릴 수 없습니다.",
+    batchDeleteSuccess: "다운로드 {{count}}개를 삭제했습니다.",
+    batchDeleteFailed: "일부 다운로드를 삭제하지 못했습니다.",
+    noSearchResults: "일치하는 다운로드가 없습니다",
+    noSearchResultsDesc:
+      "다른 앱 이름, 개발자, Bundle ID 또는 버전으로 검색해 보세요.",
+  },
+  ru: {
+    searchDownloaded: "Поиск загрузок",
+    manage: "Управление",
+    doneManaging: "Готово",
+    selectedCount: "Выбрано: {{count}}",
+    selectAll: "Выбрать все",
+    deselectAll: "Снять выделение",
+    selectItem: "Выбрать {{name}}",
+    deselectItem: "Снять выбор с {{name}}",
+    deleteSelected: "Удалить выбранные ({{count}})",
+    batchDeleteConfirm:
+      "Удалить выбранные загрузки ({{count}})? Это действие нельзя отменить.",
+    batchDeleteConfirmActive:
+      "Удалить выбранные загрузки ({{count}})? Активные загрузки ({{activeCount}}) будут отменены. Это действие нельзя отменить.",
+    batchDeleteSuccess: "Удалено загрузок: {{count}}.",
+    batchDeleteFailed: "Не удалось удалить некоторые загрузки.",
+    noSearchResults: "Подходящих загрузок не найдено",
+    noSearchResultsDesc:
+      "Попробуйте другое название приложения, разработчика, Bundle ID или версию.",
+  },
+} as const;

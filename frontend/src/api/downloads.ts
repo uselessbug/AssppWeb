@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiDelete } from "./client";
+import { apiGet, apiPost, apiDelete, ApiError } from "./client";
 import type { DownloadTask, Software, Sinf } from "../types";
 
 export async function fetchDownloads(
@@ -16,6 +16,7 @@ export async function startDownload(data: {
   accountHash: string;
   downloadURL: string;
   sinfs: Sinf[];
+  iTunesMetadata?: string;
 }): Promise<DownloadTask> {
   return apiPost<DownloadTask>("/api/downloads", data);
 }
@@ -41,5 +42,10 @@ export async function deleteDownload(
   accountHash: string,
 ): Promise<void> {
   const params = new URLSearchParams({ accountHash });
-  await apiDelete(`/api/downloads/${id}?${params}`);
+  try {
+    await apiDelete(`/api/downloads/${id}?${params}`);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return;
+    throw error;
+  }
 }

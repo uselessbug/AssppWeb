@@ -1,4 +1,7 @@
-import { useEffect, useId, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
 
 interface ScrollLockSnapshot {
   body: HTMLElement;
@@ -70,10 +73,50 @@ export default function Modal({
   children: ReactNode;
 }) {
   const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
-    return lockBackgroundScroll();
+
+    const unlockScroll = lockBackgroundScroll();
+    const dialog = dialogRef.current;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    dialog?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialog) return;
+
+      const focusables = Array.from(
+        dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      unlockScroll();
+      previouslyFocused?.focus();
+    };
   }, [open]);
 
   if (!open) return null;
@@ -88,14 +131,16 @@ export default function Modal({
         paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) onCloseRef.current();
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-sm overflow-y-auto overscroll-contain rounded-[28px] border border-white/70 bg-white/95 p-6 text-gray-900 shadow-[0_24px_70px_-20px_rgba(15,23,42,0.45)] backdrop-blur-2xl dark:border-white/10 dark:bg-gray-900/95 dark:text-white dark:shadow-black/60"
+        tabIndex={-1}
+        className="w-full max-w-sm overflow-y-auto overscroll-contain rounded-[28px] border border-white/70 bg-white/95 p-6 text-gray-900 shadow-[0_24px_70px_-20px_rgba(15,23,42,0.45)] outline-none backdrop-blur-2xl dark:border-white/10 dark:bg-gray-900/95 dark:text-white dark:shadow-black/60"
         style={{
           maxHeight:
             'calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom))',

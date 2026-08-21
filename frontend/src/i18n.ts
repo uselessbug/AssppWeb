@@ -7,25 +7,57 @@ import zhTWTranslation from "./locales/zh-TW.json";
 import jaTranslation from "./locales/ja.json";
 import koTranslation from "./locales/ko.json";
 import ruTranslation from "./locales/ru.json";
+import { downloadLibraryTranslations } from "./locales/downloadLibrary";
+
+function withDownloadLibrary<
+  T extends { downloads: Record<string, unknown> },
+  E extends Record<string, unknown>,
+>(translation: T, extra: E) {
+  return {
+    ...translation,
+    downloads: {
+      ...translation.downloads,
+      ...extra,
+    },
+  };
+}
 
 const resources = {
   "en-US": {
-    translation: enUSTranslation,
+    translation: withDownloadLibrary(
+      enUSTranslation,
+      downloadLibraryTranslations["en-US"],
+    ),
   },
   "zh-CN": {
-    translation: zhCNTranslation,
+    translation: withDownloadLibrary(
+      zhCNTranslation,
+      downloadLibraryTranslations["zh-CN"],
+    ),
   },
   "zh-TW": {
-    translation: zhTWTranslation,
+    translation: withDownloadLibrary(
+      zhTWTranslation,
+      downloadLibraryTranslations["zh-TW"],
+    ),
   },
   ja: {
-    translation: jaTranslation,
+    translation: withDownloadLibrary(
+      jaTranslation,
+      downloadLibraryTranslations.ja,
+    ),
   },
   ko: {
-    translation: koTranslation,
+    translation: withDownloadLibrary(
+      koTranslation,
+      downloadLibraryTranslations.ko,
+    ),
   },
   ru: {
-    translation: ruTranslation,
+    translation: withDownloadLibrary(
+      ruTranslation,
+      downloadLibraryTranslations.ru,
+    ),
   },
 };
 

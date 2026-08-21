@@ -5,7 +5,7 @@ import { useDownloadsStore } from "../store/downloads";
 import { getDownloadInfo } from "../apple/download";
 import { purchaseApp } from "../apple/purchase";
 import { authenticate } from "../apple/authenticate";
-import { apiPost, apiGet } from "../api/client";
+import { apiGet } from "../api/client";
 import { accountHash } from "../utils/account";
 import { getErrorMessage } from "../utils/error";
 import { getAccountContext } from "../utils/toast";
@@ -18,7 +18,7 @@ import type { Account, Software } from "../types";
 export function useDownloadAction() {
   const { updateAccount } = useAccounts();
   const addToast = useToastStore((s) => s.addToast);
-  const fetchTasks = useDownloadsStore((s) => s.fetchTasks);
+  const createDownloadTask = useDownloadsStore((s) => s.startDownload);
   const { t } = useTranslation();
 
   async function startDownload(
@@ -58,15 +58,13 @@ export function useDownloadAction() {
     await updateAccount({ ...account, cookies: updatedCookies });
     const hash = await accountHash(account);
 
-    await apiPost("/api/downloads", {
+    await createDownloadTask({
       software: { ...app, version: output.bundleShortVersionString },
       accountHash: hash,
       downloadURL: output.downloadURL,
       sinfs: output.sinfs,
       iTunesMetadata: output.iTunesMetadata,
     });
-
-    fetchTasks();
 
     addToast(
       t("toast.msg", { appName, ...ctx }),

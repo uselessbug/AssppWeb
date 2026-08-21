@@ -2,6 +2,16 @@ import { getAccessToken } from "../components/Auth/PasswordGate";
 
 const BASE_URL = "";
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export function authHeaders(): Record<string, string> {
   const token = getAccessToken();
   return token ? { "X-Access-Token": token } : {};
@@ -30,5 +40,5 @@ export async function apiDelete(path: string): Promise<void> {
     method: "DELETE",
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new ApiError(await res.text(), res.status);
 }
