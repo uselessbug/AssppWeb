@@ -53,9 +53,13 @@ function stopPolling() {
   }
 }
 
+function isDocumentHidden(): boolean {
+  return typeof document !== "undefined" && document.hidden;
+}
+
 // 轮询采用可变延迟：连续失败时指数退避，避免故障期间高频请求
 function schedulePoll() {
-  if (pollTimer) return;
+  if (pollTimer || isDocumentHidden()) return;
   const backoff = Math.min(2 ** Math.min(consecutiveErrors, 4), 16);
   const delay = Math.min(POLL_INTERVAL_MS * backoff, MAX_POLL_INTERVAL_MS);
   pollTimer = setTimeout(() => {
@@ -65,7 +69,7 @@ function schedulePoll() {
 }
 
 function startPolling(immediate = false) {
-  if (pollTimer) return;
+  if (pollTimer || isDocumentHidden()) return;
   if (immediate) {
     void useDownloadsStore.getState().fetchTasks();
   }

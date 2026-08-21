@@ -46,6 +46,13 @@ function makeTask(partial: Partial<DownloadTask> = {}): DownloadTask {
   };
 }
 
+function setDocumentHidden(hidden: boolean) {
+  Object.defineProperty(document, "hidden", {
+    configurable: true,
+    value: hidden,
+  });
+}
+
 describe("downloads store", () => {
   beforeEach(() => {
     __resetPollStateForTests();
@@ -54,6 +61,7 @@ describe("downloads store", () => {
       loading: false,
       accountHashes: [],
     });
+    setDocumentHidden(false);
     vi.useFakeTimers();
     mockedFetch.mockReset();
     mockedStart.mockReset();
@@ -62,6 +70,7 @@ describe("downloads store", () => {
 
   afterEach(() => {
     __resetPollStateForTests();
+    setDocumentHidden(false);
     vi.useRealTimers();
   });
 
@@ -215,6 +224,26 @@ describe("downloads store", () => {
 
       // 无活跃任务后不应继续轮询
       vi.advanceTimersByTime(10_000);
+      expect(mockedFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not reschedule after an in-flight fetch finishes while hidden", async () => {
+      let resolveFetch!: (value: DownloadTask[]) => void;
+      mockedFetch.mockImplementationOnce(
+        () =>
+          new Promise<DownloadTask[]>((resolve) => {
+            resolveFetch = resolve;
+          }),
+      );
+
+      const poll = useDownloadsStore.getState().fetchTasks();
+      setDocumentHidden(true);
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      resolveFetch([makeTask()]);
+      await poll;
+      await vi.advanceTimersByTimeAsync(10_000);
+
       expect(mockedFetch).toHaveBeenCalledTimes(1);
     });
   });

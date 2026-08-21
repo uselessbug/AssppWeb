@@ -4,6 +4,7 @@ import PageContainer from "../Layout/PageContainer";
 import Modal from "../common/Modal";
 import ConfirmModal from "../common/ConfirmModal";
 import { useAccountsStore } from "../../store/accounts";
+import { useSettingsStore, type EntityType } from "../../store/settings";
 import { useToastStore } from "../../store/toast";
 import { apiGet } from "../../api/client";
 import { encryptData, decryptData } from "../../utils/crypto";
@@ -24,9 +25,9 @@ interface ServerInfo {
   downloadThreads?: number;
 }
 
-const entityTypes = [
-  { value: "software", label: "iPhone" },
-  { value: "iPadSoftware", label: "iPad" },
+const entityTypes: { value: EntityType; label: string }[] = [
+  { value: "iPhone", label: "iPhone" },
+  { value: "iPad", label: "iPad" },
 ];
 
 const cardClass =
@@ -39,14 +40,14 @@ const modalFieldClass =
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { accounts, addAccount, updateAccount } = useAccountsStore();
+  const {
+    defaultCountry,
+    defaultEntity,
+    setDefaultCountry,
+    setDefaultEntity,
+  } = useSettingsStore();
   const addToast = useToastStore((s) => s.addToast);
 
-  const [country, setCountry] = useState(
-    () => localStorage.getItem("asspp-default-country") || "US",
-  );
-  const [entity, setEntity] = useState(
-    () => localStorage.getItem("asspp-default-entity") || "software",
-  );
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null);
 
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -62,14 +63,6 @@ export default function SettingsPage() {
   const [pendingAccounts, setPendingAccounts] = useState<Account[]>([]);
   const [conflictStats, setConflictStats] = useState({ conflict: 0, new: 0 });
   const [showClearModal, setShowClearModal] = useState(false);
-
-  useEffect(() => {
-    localStorage.setItem("asspp-default-country", country);
-  }, [country]);
-
-  useEffect(() => {
-    localStorage.setItem("asspp-default-entity", entity);
-  }, [entity]);
 
   useEffect(() => {
     apiGet<ServerInfo>("/api/settings")
@@ -223,9 +216,9 @@ export default function SettingsPage() {
               </label>
               <select
                 id="country"
-                value={country}
+                value={defaultCountry}
                 onChange={(e) => {
-                  setCountry(e.target.value);
+                  setDefaultCountry(e.target.value);
                   addToast(t("settings.defaults.countryChanged"), "success");
                 }}
                 className={fieldClass}
@@ -243,9 +236,9 @@ export default function SettingsPage() {
               </label>
               <select
                 id="entity"
-                value={entity}
+                value={defaultEntity}
                 onChange={(e) => {
-                  setEntity(e.target.value);
+                  setDefaultEntity(e.target.value as EntityType);
                   addToast(t("settings.defaults.entityChanged"), "success");
                 }}
                 className={fieldClass}
