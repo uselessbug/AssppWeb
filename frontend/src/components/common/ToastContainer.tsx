@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
-import { useToastStore, type ToastType } from '../../store/toast';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useToastStore, type Toast, type ToastType } from '../../store/toast';
 
 const iconBg: Record<ToastType, string> = {
   success:
@@ -68,8 +69,51 @@ const icons: Record<ToastType, ReactNode> = {
   ),
 };
 
+// 退出动画时长（与 CSS animate-toast-out 保持一致）
+const EXIT_ANIMATION_MS = 300;
+
 export default function ToastContainer() {
   const { toasts, removeToast } = useToastStore();
+  const { t } = useTranslation();
+
+  // 正在播放退出动画的 toast：store 已移除它们，但暂留渲染直至动画结束
+  const [leaving, setLeaving] = useState<Record<string, Toast>>({});
+  const prevToastsRef = useRef<Toast[]>([]);
+
+  useEffect(() => {
+    const currentIds = new Set(toasts.map((toast) => toast.id));
+    const newlyGone: Toast[] = [];
+    for (const prevToast of prevToastsRef.current) {
+      if (!currentIds.has(prevToast.id) && !leaving[prevToast.id]) {
+        newlyGone.push(prevToast);
+      }
+    }
+
+    if (newlyGone.length > 0) {
+      setLeaving((prev) => {
+        const next = { ...prev };
+        for (const toast of newlyGone) next[toast.id] = toast;
+        return next;
+      });
+      for (const toast of newlyGone) {
+        setTimeout(() => {
+          setLeaving((prev) => {
+            if (!prev[toast.id]) return prev;
+            const next = { ...prev };
+            delete next[toast.id];
+            return next;
+          });
+        }, EXIT_ANIMATION_MS);
+      }
+    }
+
+    prevToastsRef.current = toasts;
+  }, [toasts, leaving]);
+
+  const allToasts = [
+    ...toasts.map((toast) => ({ toast, leaving: false })),
+    ...Object.values(leaving).map((toast) => ({ toast, leaving: true })),
+  ];
 
   return (
     <>
@@ -82,8 +126,15 @@ export default function ToastContainer() {
           .animate-toast-in {
             animation: toast-slide-in 0.36s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           }
+          @keyframes toast-slide-out {
+            from { transform: translateX(0); opacity: 1; }
+            to   { transform: translateX(120%); opacity: 0; }
+          }
+          .animate-toast-out {
+            animation: toast-slide-out 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
+          }
           @media (prefers-reduced-motion: reduce) {
-            .animate-toast-in { animation: none; }
+            .animate-toast-in, .animate-toast-out { animation: none; }
           }
         `}
       </style>
@@ -91,15 +142,15 @@ export default function ToastContainer() {
       <div
         className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+4.625rem)] left-4 right-4 top-[calc(env(safe-area-inset-top)+4rem)] z-[100] flex flex-col items-end gap-3 overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-width:none] md:bottom-4 md:left-auto md:top-4 [&::-webkit-scrollbar]:hidden"
         role="region"
-        aria-label="Notifications"
+        aria-label={t('toast.regionLabel')}
       >
-        {toasts.map((toast) => (
+        {allToasts.map(({ toast, leaving: isLeaving }) => (
           <div
             key={toast.id}
             role={toast.type === 'error' ? 'alert' : 'status'}
             aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
             aria-atomic="true"
-            className="animate-toast-in pointer-events-auto flex w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] shrink-0 items-start gap-3 rounded-[20px] border border-gray-200/80 bg-white/95 p-3 shadow-[0_18px_50px_-18px_rgba(15,23,42,0.4)] backdrop-blur-2xl sm:w-auto sm:min-w-[320px] sm:max-w-md dark:border-white/10 dark:bg-gray-900/95 dark:shadow-black/60"
+            className={`${isLeaving ? 'animate-toast-out' : 'animate-toast-in'} pointer-events-auto flex w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] shrink-0 items-start gap-3 rounded-[20px] border border-gray-200/80 bg-white/95 p-3 shadow-[0_18px_50px_-18px_rgba(15,23,42,0.4)] backdrop-blur-2xl sm:w-auto sm:min-w-[320px] sm:max-w-md dark:border-white/10 dark:bg-gray-900/95 dark:shadow-black/60`}
           >
             <div
               className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] ${iconBg[toast.type]}`}
@@ -123,9 +174,19 @@ export default function ToastContainer() {
             </div>
 
             <button
-              onClick={() => removeToast(toast.id)}
+              onClick={() => {
+                if (isLeaving) {
+                  setLeaving((prev) => {
+                    const next = { ...prev };
+                    delete next[toast.id];
+                    return next;
+                  });
+                } else {
+                  removeToast(toast.id);
+                }
+              }}
               className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-              aria-label="Close notification"
+              aria-label={t('toast.close')}
             >
               <svg
                 aria-hidden="true"

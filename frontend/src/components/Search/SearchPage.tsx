@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import AppIcon from "../common/AppIcon";
 import CountrySelect from "../common/CountrySelect";
+import EmptyState from "../common/EmptyState";
 import Spinner from "../common/Spinner";
 import { useSearch } from "../../hooks/useSearch";
 import { useAccounts } from "../../hooks/useAccounts";
@@ -109,8 +110,8 @@ export default function SearchPage() {
       </form>
 
       {results.length === 0 && !loading && !error && (
-        <div className="flex flex-col items-center justify-center rounded-3xl bg-white px-6 py-16 text-center shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-950">
+        <EmptyState
+          icon={
             <svg
               className="h-8 w-8 text-blue-600 dark:text-blue-400"
               fill="none"
@@ -124,14 +125,10 @@ export default function SearchPage() {
                 d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
               />
             </svg>
-          </div>
-          <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-            {t("search.empty")}
-          </h3>
-          <p className="max-w-full whitespace-nowrap text-[clamp(0.5625rem,2.8vw,0.875rem)] leading-relaxed tracking-[-0.015em] text-gray-500 dark:text-gray-400">
-            {t("search.emptyDesc")}
-          </p>
-        </div>
+          }
+          title={t("search.empty")}
+          description={t("search.emptyDesc")}
+        />
       )}
 
       {results.length > 0 && (

@@ -107,12 +107,12 @@ export default function VersionHistory() {
   return (
     <PageContainer title={t("search.versions.title")}>
       <div className="min-w-0 space-y-6">
-        <div className="flex min-w-0 items-center gap-4">
+        <div className="flex min-w-0 items-center gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 sm:p-6">
           <div className="shrink-0">
             <AppIcon url={app.artworkUrl} name={app.name} size="md" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="font-medium text-gray-900 [overflow-wrap:anywhere] dark:text-white">
+            <h2 className="font-semibold text-gray-900 [overflow-wrap:anywhere] dark:text-white">
               {app.name}
             </h2>
             <p className="text-sm text-gray-500 [overflow-wrap:anywhere] dark:text-gray-400">
@@ -122,12 +122,12 @@ export default function VersionHistory() {
         </div>
 
         {accounts.length > 0 && filteredAccounts.length === 0 ? (
-          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-700 [overflow-wrap:anywhere] dark:border-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+          <div className="rounded-2xl border border-yellow-200/80 bg-yellow-50/90 px-4 py-3 text-sm leading-6 text-yellow-700 shadow-sm shadow-yellow-950/5 [overflow-wrap:anywhere] dark:border-yellow-900/70 dark:bg-yellow-950/45 dark:text-yellow-300 dark:shadow-none">
             {t("search.product.noAccountsForRegion")}
           </div>
         ) : (
           filteredAccounts.length > 0 && (
-            <div className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+            <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 sm:flex-row sm:items-end sm:p-5">
               <div className="min-w-0 flex-1">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t("search.versions.account")}
@@ -135,7 +135,7 @@ export default function VersionHistory() {
                 <select
                   value={selectedAccount}
                   onChange={(e) => setSelectedAccount(e.target.value)}
-                  className="w-full min-w-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                  className="min-h-11 w-full min-w-0 rounded-xl border-0 bg-gray-100 px-3 py-2 text-base text-gray-900 transition-colors focus:ring-2 focus:ring-blue-500/40 dark:bg-gray-800 dark:text-white"
                 >
                   {filteredAccounts.map((a) => (
                     <option key={a.email} value={a.email}>
@@ -148,7 +148,7 @@ export default function VersionHistory() {
                 onClick={handleLoadVersions}
                 disabled={loading || !account}
                 aria-busy={loading}
-                className="inline-flex w-full shrink-0 items-center justify-center gap-2 whitespace-normal rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 sm:w-auto sm:whitespace-nowrap"
+                className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-normal rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:whitespace-nowrap"
               >
                 {loading && <Spinner />}
                 {loading
@@ -160,7 +160,7 @@ export default function VersionHistory() {
         )}
 
         {versions.length > 0 && (
-          <div className="min-w-0 divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
+          <div className="min-w-0 divide-y divide-gray-100 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5 dark:divide-gray-800 dark:bg-gray-900 dark:ring-white/10">
             {versions.map((versionId) => {
               const meta = versionMeta[versionId];
               const isLoadingMeta = loadingMeta[versionId];
@@ -202,7 +202,7 @@ export default function VersionHistory() {
                     onClick={() => handleDownloadVersion(versionId)}
                     disabled={isDownloading || downloadingVersion !== null}
                     aria-busy={isDownloading}
-                    className="inline-flex max-w-[45%] shrink-0 items-center justify-center gap-1.5 rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-medium leading-tight text-white [overflow-wrap:anywhere] transition-colors hover:bg-blue-700 disabled:opacity-50"
+                    className="inline-flex min-h-10 max-w-[45%] shrink-0 items-center justify-center gap-1.5 rounded-full bg-blue-600 px-4 py-2 text-center text-sm font-semibold leading-tight text-white [overflow-wrap:anywhere] transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isDownloading && <Spinner />}
                     {isDownloading

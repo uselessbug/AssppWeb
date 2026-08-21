@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import Modal from "../common/Modal";
+import ConfirmModal from "../common/ConfirmModal";
 import { useAccountsStore } from "../../store/accounts";
 import { useToastStore } from "../../store/toast";
 import { apiGet } from "../../api/client";
@@ -28,6 +29,13 @@ const entityTypes = [
   { value: "iPadSoftware", label: "iPad" },
 ];
 
+const cardClass =
+  "min-w-0 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 sm:p-6";
+const fieldClass =
+  "block min-h-11 w-full min-w-0 max-w-full truncate rounded-xl border-0 bg-gray-100 px-3 py-2 text-base text-gray-900 transition-colors focus:ring-2 focus:ring-blue-500/40 dark:bg-gray-800 dark:text-white";
+const modalFieldClass =
+  "block min-h-11 w-full min-w-0 max-w-full rounded-xl border-0 bg-gray-100 px-3 py-2 text-base text-gray-900 transition-colors focus:ring-2 focus:ring-blue-500/40 dark:bg-gray-800 dark:text-white";
+
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { accounts, addAccount, updateAccount } = useAccountsStore();
@@ -53,6 +61,7 @@ export default function SettingsPage() {
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [pendingAccounts, setPendingAccounts] = useState<Account[]>([]);
   const [conflictStats, setConflictStats] = useState({ conflict: 0, new: 0 });
+  const [showClearModal, setShowClearModal] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("asspp-default-country", country);
@@ -72,7 +81,7 @@ export default function SettingsPage() {
     t(`countries.${a}`, a).localeCompare(t(`countries.${b}`, b)),
   );
 
-  const handleExport = async () => {
+  async function handleExport() {
     if (exportPassword !== exportConfirmPassword) {
       addToast(t("settings.data.passwordMismatch"), "error");
       return;
@@ -86,7 +95,6 @@ export default function SettingsPage() {
       a.download = "asspp-accounts.enc";
       a.click();
       URL.revokeObjectURL(url);
-
       setExportModalOpen(false);
       setExportPassword("");
       setExportConfirmPassword("");
@@ -94,23 +102,21 @@ export default function SettingsPage() {
     } catch {
       addToast(t("settings.data.exportFailed"), "error");
     }
-  };
+  }
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setImportFileData(content);
+      setImportFileData(event.target?.result as string);
       setImportModalOpen(true);
     };
     reader.readAsText(file);
     e.target.value = "";
-  };
+  }
 
-  const handleImport = async () => {
+  async function handleImport() {
     try {
       const parsed = await decryptData(importFileData, importPassword);
       if (!Array.isArray(parsed)) throw new Error("Invalid format");
@@ -124,41 +130,37 @@ export default function SettingsPage() {
       if (valid.length === 0) throw new Error("No valid accounts found");
 
       if (accounts.length === 0) {
-        for (const acc of valid) {
-          await addAccount(acc);
-        }
+        for (const acc of valid) await addAccount(acc);
         addToast(t("settings.data.importSuccess"), "success");
         setImportModalOpen(false);
         setImportPassword("");
-      } else {
-        let conflictCount = 0;
-        let newCount = 0;
-        valid.forEach((imported) => {
-          if (accounts.some((a) => a.email === imported.email)) conflictCount++;
-          else newCount++;
-        });
+        return;
+      }
 
-        if (conflictCount > 0) {
-          setConflictStats({ conflict: conflictCount, new: newCount });
-          setPendingAccounts(valid);
-          setImportModalOpen(false);
-          setImportPassword("");
-          setConflictModalOpen(true);
-        } else {
-          for (const acc of valid) {
-            await addAccount(acc);
-          }
-          addToast(t("settings.data.importSuccess"), "success");
-          setImportModalOpen(false);
-          setImportPassword("");
-        }
+      let conflictCount = 0;
+      let newCount = 0;
+      valid.forEach((imported) => {
+        if (accounts.some((a) => a.email === imported.email)) conflictCount++;
+        else newCount++;
+      });
+      if (conflictCount > 0) {
+        setConflictStats({ conflict: conflictCount, new: newCount });
+        setPendingAccounts(valid);
+        setImportModalOpen(false);
+        setImportPassword("");
+        setConflictModalOpen(true);
+      } else {
+        for (const acc of valid) await addAccount(acc);
+        addToast(t("settings.data.importSuccess"), "success");
+        setImportModalOpen(false);
+        setImportPassword("");
       }
     } catch {
       addToast(t("settings.data.incorrectPassword"), "error");
     }
-  };
+  }
 
-  const handleResolveConflict = async (overwrite: boolean) => {
+  async function handleResolveConflict(overwrite: boolean) {
     for (const imported of pendingAccounts) {
       const exists = accounts.some((a) => a.email === imported.email);
       if (exists) {
@@ -170,54 +172,53 @@ export default function SettingsPage() {
     setConflictModalOpen(false);
     setPendingAccounts([]);
     addToast(t("settings.data.importSuccess"), "success");
-  };
+  }
+
+  function handleClearData() {
+    setShowClearModal(false);
+    localStorage.clear();
+    indexedDB.deleteDatabase("asspp-accounts");
+    addToast(t("settings.data.cleared"), "success");
+    setTimeout(() => {
+      window.location.href = "/";
+    }, 1000);
+  }
 
   return (
     <PageContainer title={t("settings.title")}>
       <div className="min-w-0 space-y-6">
-        <section className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 sm:p-6 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <section className={cardClass}>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             {t("settings.language.title")}
           </h2>
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="language"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                {t("settings.language.label")}
-              </label>
-              <select
-                id="language"
-                value={i18n.resolvedLanguage || "en-US"}
-                onChange={async (e) => {
-                  const newLang = e.target.value;
-                  await i18n.changeLanguage(newLang);
-                  addToast(t("settings.language.changed"), "success");
-                }}
-                className="block min-w-0 max-w-full w-full truncate rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-              >
-                <option value="en-US">English (US)</option>
-                <option value="zh-CN">简体中文</option>
-                <option value="zh-TW">繁體中文</option>
-                <option value="ja">日本語</option>
-                <option value="ko">한국어</option>
-                <option value="ru">Русский</option>
-              </select>
-            </div>
-          </div>
+          <label htmlFor="language" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t("settings.language.label")}
+          </label>
+          <select
+            id="language"
+            value={i18n.resolvedLanguage || "en-US"}
+            onChange={async (e) => {
+              await i18n.changeLanguage(e.target.value);
+              addToast(t("settings.language.changed"), "success");
+            }}
+            className={fieldClass}
+          >
+            <option value="en-US">English (US)</option>
+            <option value="zh-CN">简体中文</option>
+            <option value="zh-TW">繁體中文</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="ru">Русский</option>
+          </select>
         </section>
 
-        <section className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 sm:p-6 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <section className={cardClass}>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             {t("settings.defaults.title")}
           </h2>
           <div className="space-y-4">
             <div>
-              <label
-                htmlFor="country"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
+              <label htmlFor="country" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t("settings.defaults.country")}
               </label>
               <select
@@ -227,7 +228,7 @@ export default function SettingsPage() {
                   setCountry(e.target.value);
                   addToast(t("settings.defaults.countryChanged"), "success");
                 }}
-                className="block min-w-0 max-w-full w-full truncate rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                className={fieldClass}
               >
                 {sortedCountries.map((code) => (
                   <option key={code} value={code}>
@@ -237,10 +238,7 @@ export default function SettingsPage() {
               </select>
             </div>
             <div>
-              <label
-                htmlFor="entity"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
+              <label htmlFor="entity" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t("settings.defaults.entity")}
               </label>
               <select
@@ -250,20 +248,18 @@ export default function SettingsPage() {
                   setEntity(e.target.value);
                   addToast(t("settings.defaults.entityChanged"), "success");
                 }}
-                className="block min-w-0 max-w-full w-full truncate rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                className={fieldClass}
               >
                 {entityTypes.map((et) => (
-                  <option key={et.value} value={et.value}>
-                    {et.label}
-                  </option>
+                  <option key={et.value} value={et.value}>{et.label}</option>
                 ))}
               </select>
             </div>
           </div>
         </section>
 
-        <section className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 sm:p-6 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <section className={cardClass}>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             {t("settings.server.title")}
           </h2>
           {serverInfo ? (
@@ -275,294 +271,138 @@ export default function SettingsPage() {
                   </SettingsInfoRow>
                 )}
               </dl>
-
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">
                   {t("settings.server.configuration")}
                 </h3>
                 <dl className="min-w-0 divide-y divide-gray-100 border-y border-gray-100 dark:divide-gray-800 dark:border-gray-800">
-                  <SettingsInfoRow label="PORT" mono>
-                    {serverInfo.port}
+                  <SettingsInfoRow label="PORT" mono>{serverInfo.port}</SettingsInfoRow>
+                  <SettingsInfoRow label="DATA_DIR" mono valueTitle={serverInfo.dataDir}>{serverInfo.dataDir}</SettingsInfoRow>
+                  <SettingsInfoRow label="PUBLIC_BASE_URL" mono valueTitle={serverInfo.publicBaseUrl || undefined}>
+                    {serverInfo.publicBaseUrl || <span className="italic text-gray-400 dark:text-gray-500">{t("settings.server.notSet")}</span>}
                   </SettingsInfoRow>
-                  <SettingsInfoRow
-                    label="DATA_DIR"
-                    mono
-                    valueTitle={serverInfo.dataDir}
-                  >
-                    {serverInfo.dataDir}
+                  <SettingsInfoRow label="UNSAFE_DANGEROUSLY_DISABLE_HTTPS_REDIRECT" mono>
+                    {serverInfo.disableHttpsRedirect ? t("settings.server.enabled") : t("settings.server.disabled")}
                   </SettingsInfoRow>
-                  <SettingsInfoRow
-                    label="PUBLIC_BASE_URL"
-                    mono
-                    valueTitle={serverInfo.publicBaseUrl || undefined}
-                  >
-                    {serverInfo.publicBaseUrl || (
-                      <span className="italic text-gray-400 dark:text-gray-500">
-                        {t("settings.server.notSet")}
-                      </span>
-                    )}
-                  </SettingsInfoRow>
-                  <SettingsInfoRow
-                    label="UNSAFE_DANGEROUSLY_DISABLE_HTTPS_REDIRECT"
-                    mono
-                  >
-                    {serverInfo.disableHttpsRedirect
-                      ? t("settings.server.enabled")
-                      : t("settings.server.disabled")}
-                  </SettingsInfoRow>
-                  <SettingsInfoRow label="AUTO_CLEANUP_DAYS" mono>
-                    {serverInfo.autoCleanupDays ||
-                      t("settings.server.disabled")}
-                  </SettingsInfoRow>
-                  <SettingsInfoRow label="AUTO_CLEANUP_MAX_MB" mono>
-                    {serverInfo.autoCleanupMaxMB ||
-                      t("settings.server.disabled")}
-                  </SettingsInfoRow>
-                  <SettingsInfoRow label="MAX_DOWNLOAD_MB" mono>
-                    {serverInfo.maxDownloadMB ||
-                      t("settings.server.disabled")}
-                  </SettingsInfoRow>
-                  <SettingsInfoRow label="DOWNLOAD_THREADS" mono>
-                    {serverInfo.downloadThreads ?? 8}
-                  </SettingsInfoRow>
+                  <SettingsInfoRow label="AUTO_CLEANUP_DAYS" mono>{serverInfo.autoCleanupDays || t("settings.server.disabled")}</SettingsInfoRow>
+                  <SettingsInfoRow label="AUTO_CLEANUP_MAX_MB" mono>{serverInfo.autoCleanupMaxMB || t("settings.server.disabled")}</SettingsInfoRow>
+                  <SettingsInfoRow label="MAX_DOWNLOAD_MB" mono>{serverInfo.maxDownloadMB || t("settings.server.disabled")}</SettingsInfoRow>
+                  <SettingsInfoRow label="DOWNLOAD_THREADS" mono>{serverInfo.downloadThreads ?? 8}</SettingsInfoRow>
                 </dl>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t("settings.server.offline")}
-            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t("settings.server.offline")}</p>
           )}
         </section>
 
-        <section className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 sm:p-6 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <section className={cardClass}>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             {t("settings.data.title")}
           </h2>
-          <p className="mb-4 max-w-full whitespace-nowrap text-[clamp(0.5625rem,2.8vw,0.875rem)] leading-relaxed tracking-[-0.015em] text-gray-600 dark:text-gray-400">
+          <p className="mb-4 max-w-full break-words text-sm leading-relaxed text-gray-600 dark:text-gray-400">
             {t("settings.data.description")}
           </p>
-
           <div className="mb-6 grid w-full min-w-0 grid-cols-2 gap-3 sm:max-w-sm">
-            <button
-              onClick={() => setExportModalOpen(true)}
-              className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-lg border border-blue-300 px-3 py-2 text-center text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 sm:px-4 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30"
-            >
+            <button onClick={() => setExportModalOpen(true)} className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-blue-50 px-3 py-2 text-center text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-100 sm:px-4 dark:bg-blue-950/60 dark:text-blue-400 dark:hover:bg-blue-950">
               {t("settings.data.exportBtn")}
             </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-lg border border-green-300 px-3 py-2 text-center text-sm font-medium text-green-600 transition-colors hover:bg-green-50 sm:px-4 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30"
-            >
+            <button onClick={() => fileInputRef.current?.click()} className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-green-50 px-3 py-2 text-center text-sm font-semibold text-green-700 transition-colors hover:bg-green-100 sm:px-4 dark:bg-green-950/60 dark:text-green-400 dark:hover:bg-green-950">
               {t("settings.data.importBtn")}
             </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept=".enc"
-              onChange={handleFileSelect}
-            />
+            <input type="file" ref={fileInputRef} className="hidden" accept=".enc" onChange={handleFileSelect} />
           </div>
-
-          <button
-            onClick={() => {
-              if (!confirm(t("settings.data.confirm"))) return;
-              localStorage.clear();
-              indexedDB.deleteDatabase("asspp-accounts");
-              addToast(t("settings.data.cleared"), "success");
-              setTimeout(() => {
-                window.location.href = "/";
-              }, 1000);
-            }}
-            className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-lg border border-red-300 px-4 py-2 text-center text-sm font-medium text-red-600 transition-colors hover:bg-red-50 sm:w-auto dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30"
-          >
+          <button onClick={() => setShowClearModal(true)} className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-red-50 px-4 py-2 text-center text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 sm:w-auto dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/70">
             {t("settings.data.button")}
           </button>
         </section>
 
-        <section className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 sm:p-6 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <section className={cardClass}>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             {t("settings.about.title")}
           </h2>
-          <p className="max-w-full whitespace-nowrap text-[clamp(0.5625rem,2.8vw,0.875rem)] leading-relaxed tracking-[-0.015em] text-gray-600 dark:text-gray-400">
+          <p className="max-w-full break-words text-sm leading-relaxed text-gray-600 dark:text-gray-400">
             {t("settings.about.description")}
           </p>
           {serverInfo && (
             <dl className="mt-3 min-w-0 divide-y divide-gray-100 dark:divide-gray-800">
-              {serverInfo.buildCommit &&
-                serverInfo.buildCommit !== "unknown" && (
-                  <SettingsInfoRow
-                    label={t("settings.about.buildCommit")}
-                    mono
-                    compact
-                    valueTitle={serverInfo.buildCommit}
-                  >
-                    {serverInfo.buildCommit}
-                  </SettingsInfoRow>
-                )}
+              {serverInfo.buildCommit && serverInfo.buildCommit !== "unknown" && (
+                <SettingsInfoRow label={t("settings.about.buildCommit")} mono compact valueTitle={serverInfo.buildCommit}>{serverInfo.buildCommit}</SettingsInfoRow>
+              )}
               {serverInfo.buildDate && serverInfo.buildDate !== "unknown" && (
-                <SettingsInfoRow
-                  label={t("settings.about.buildDate")}
-                  compact
-                  valueTitle={serverInfo.buildDate}
-                >
-                    {new Date(serverInfo.buildDate).toLocaleString()}
-                </SettingsInfoRow>
+                <SettingsInfoRow label={t("settings.about.buildDate")} compact valueTitle={serverInfo.buildDate}>{new Date(serverInfo.buildDate).toLocaleString()}</SettingsInfoRow>
               )}
             </dl>
           )}
         </section>
       </div>
 
-      <Modal
-        open={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        title={t("settings.data.exportBtn")}
-      >
+      <Modal open={exportModalOpen} onClose={() => setExportModalOpen(false)} title={t("settings.data.exportBtn")}>
         <div className="min-w-0 space-y-4">
           <div className="min-w-0">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t("settings.data.passwordPrompt")}
-            </label>
-            <input
-              type="password"
-              value={exportPassword}
-              onChange={(e) => setExportPassword(e.target.value)}
-              className="block min-w-0 max-w-full w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-            />
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">{t("settings.data.passwordPrompt")}</label>
+            <input type="password" value={exportPassword} onChange={(e) => setExportPassword(e.target.value)} className={modalFieldClass} />
           </div>
           <div className="min-w-0">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t("settings.data.passwordConfirm")}
-            </label>
-            <input
-              type="password"
-              value={exportConfirmPassword}
-              onChange={(e) => setExportConfirmPassword(e.target.value)}
-              className="block min-w-0 max-w-full w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-            />
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">{t("settings.data.passwordConfirm")}</label>
+            <input type="password" value={exportConfirmPassword} onChange={(e) => setExportConfirmPassword(e.target.value)} className={modalFieldClass} />
           </div>
         </div>
         <div className="mt-6 flex min-w-0 flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
-          <button
-            onClick={() => setExportModalOpen(false)}
-            className="min-h-11 min-w-0 whitespace-normal break-words rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 sm:w-auto dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            {t("settings.data.cancel")}
-          </button>
-          <button
-            onClick={handleExport}
-            disabled={!exportPassword || !exportConfirmPassword}
-            className="min-h-11 min-w-0 whitespace-normal break-words rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
-          >
-            {t("settings.data.confirmBtn")}
-          </button>
+          <button onClick={() => setExportModalOpen(false)} className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 sm:w-auto dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{t("settings.data.cancel")}</button>
+          <button onClick={handleExport} disabled={!exportPassword || !exportConfirmPassword} className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">{t("settings.data.confirmBtn")}</button>
         </div>
       </Modal>
 
-      <Modal
-        open={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-        title={t("settings.data.importBtn")}
-      >
+      <Modal open={importModalOpen} onClose={() => setImportModalOpen(false)} title={t("settings.data.importBtn")}>
         <div className="min-w-0 space-y-4">
           <div className="min-w-0">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t("settings.data.passwordPrompt")}
-            </label>
-            <input
-              type="password"
-              value={importPassword}
-              onChange={(e) => setImportPassword(e.target.value)}
-              className="block min-w-0 max-w-full w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-            />
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">{t("settings.data.passwordPrompt")}</label>
+            <input type="password" value={importPassword} onChange={(e) => setImportPassword(e.target.value)} className={modalFieldClass} />
           </div>
         </div>
         <div className="mt-6 flex min-w-0 flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
-          <button
-            onClick={() => setImportModalOpen(false)}
-            className="min-h-11 min-w-0 whitespace-normal break-words rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 sm:w-auto dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            {t("settings.data.cancel")}
-          </button>
-          <button
-            onClick={handleImport}
-            disabled={!importPassword}
-            className="min-h-11 min-w-0 whitespace-normal break-words rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
-          >
-            {t("settings.data.confirmBtn")}
-          </button>
+          <button onClick={() => setImportModalOpen(false)} className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 sm:w-auto dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{t("settings.data.cancel")}</button>
+          <button onClick={handleImport} disabled={!importPassword} className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">{t("settings.data.confirmBtn")}</button>
         </div>
       </Modal>
 
-      <Modal
-        open={conflictModalOpen}
-        onClose={() => setConflictModalOpen(false)}
-        title={t("settings.data.conflictTitle")}
-      >
+      <Modal open={conflictModalOpen} onClose={() => setConflictModalOpen(false)} title={t("settings.data.conflictTitle")}>
         <p className="mb-6 min-w-0 break-words text-sm leading-6 text-gray-700 dark:text-gray-300">
-          {t("settings.data.conflictDesc", {
-            conflict: conflictStats.conflict,
-            new: conflictStats.new,
-          })}
+          {t("settings.data.conflictDesc", { conflict: conflictStats.conflict, new: conflictStats.new })}
         </p>
         <div className="flex min-w-0 flex-col gap-3">
-          <button
-            onClick={() => handleResolveConflict(true)}
-            className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
-          >
-            {t("settings.data.conflictOverwrite")}
-          </button>
-          <button
-            onClick={() => handleResolveConflict(false)}
-            className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            {t("settings.data.conflictSkip")}
-          </button>
-          <button
-            onClick={() => setConflictModalOpen(false)}
-            className="mt-2 min-h-11 w-full min-w-0 whitespace-normal break-words rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            {t("settings.data.cancel")}
-          </button>
+          <button onClick={() => handleResolveConflict(true)} className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700">{t("settings.data.conflictOverwrite")}</button>
+          <button onClick={() => handleResolveConflict(false)} className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{t("settings.data.conflictSkip")}</button>
+          <button onClick={() => setConflictModalOpen(false)} className="mt-2 min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{t("settings.data.cancel")}</button>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={showClearModal}
+        title={t("settings.data.button")}
+        message={t("settings.data.confirm")}
+        confirmText={t("settings.data.confirmBtn")}
+        danger
+        onConfirm={handleClearData}
+        onCancel={() => setShowClearModal(false)}
+      />
     </PageContainer>
   );
 }
 
-function SettingsInfoRow({
-  label,
-  children,
-  mono = false,
-  compact = false,
-  valueTitle,
-}: {
+function SettingsInfoRow({ label, children, mono = false, compact = false, valueTitle }: {
   label: string;
   children: ReactNode;
   mono?: boolean;
   compact?: boolean;
   valueTitle?: string;
 }) {
-  const labelSize = compact ? "text-xs" : "text-sm";
-  const valueSize = compact ? "text-xs" : "text-sm";
-
+  const size = compact ? "text-xs" : "text-sm";
   return (
     <div className="grid min-w-0 grid-cols-1 gap-1 py-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] sm:items-start sm:gap-6">
-      <dt
-        className={`${labelSize} min-w-0 break-all font-medium text-gray-500 dark:text-gray-400`}
-      >
-        {label}
-      </dt>
-      <dd
-        title={valueTitle}
-        className={`${valueSize} min-w-0 max-w-full whitespace-pre-wrap break-all text-gray-900 sm:text-right dark:text-gray-200 ${
-          mono ? "font-mono" : ""
-        }`}
-      >
-        {children}
-      </dd>
+      <dt className={`${size} min-w-0 break-all font-medium text-gray-500 dark:text-gray-400`}>{label}</dt>
+      <dd title={valueTitle} className={`${size} min-w-0 max-w-full whitespace-pre-wrap break-all text-gray-900 sm:text-right dark:text-gray-200 ${mono ? "font-mono" : ""}`}>{children}</dd>
     </div>
   );
 }

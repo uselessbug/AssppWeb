@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import Alert from '../common/Alert';
 import AppIcon from "../common/AppIcon";
+import LoadingState from '../common/LoadingState';
 import Spinner from '../common/Spinner';
 import {
   isProductPreviewEnabled,
@@ -47,8 +48,7 @@ export default function ProductDetail() {
   >(null);
 
   const filteredAccounts = useMemo(
-    () =>
-      productAccounts.filter((a) => storeIdToCountry(a.store) === country),
+    () => productAccounts.filter((a) => storeIdToCountry(a.store) === country),
     [productAccounts, country],
   );
 
@@ -81,7 +81,7 @@ export default function ProductDetail() {
   if (loading) {
     return (
       <PageContainer title={t("search.product.title")}>
-        <div className="text-center text-gray-500 py-12">{t("loading")}</div>
+        <LoadingState label={t("loading")} />
       </PageContainer>
     );
   }
@@ -255,39 +255,21 @@ export default function ProductDetail() {
             {t("search.product.details")}
           </h2>
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <dt className="text-gray-500 dark:text-gray-400">
-              {t("search.product.bundleId")}
-            </dt>
-            <dd className="text-gray-900 dark:text-gray-200 break-all">
-              {app.bundleID}
-            </dd>
-            <dt className="text-gray-500 dark:text-gray-400">
-              {t("search.product.version")}
-            </dt>
+            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.bundleId")}</dt>
+            <dd className="text-gray-900 dark:text-gray-200 break-all">{app.bundleID}</dd>
+            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.version")}</dt>
             <dd className="text-gray-900 dark:text-gray-200">{app.version}</dd>
-            <dt className="text-gray-500 dark:text-gray-400">
-              {t("search.product.size")}
-            </dt>
+            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.size")}</dt>
             <dd className="text-gray-900 dark:text-gray-200">
               {app.fileSizeBytes
                 ? `${(parseInt(app.fileSizeBytes) / 1024 / 1024).toFixed(1)} MB`
                 : "N/A"}
             </dd>
-            <dt className="text-gray-500 dark:text-gray-400">
-              {t("search.product.minOs")}
-            </dt>
-            <dd className="text-gray-900 dark:text-gray-200">
-              {app.minimumOsVersion}
-            </dd>
-            <dt className="text-gray-500 dark:text-gray-400">
-              {t("search.product.seller")}
-            </dt>
-            <dd className="text-gray-900 dark:text-gray-200">
-              {app.sellerName}
-            </dd>
-            <dt className="text-gray-500 dark:text-gray-400">
-              {t("search.product.released")}
-            </dt>
+            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.minOs")}</dt>
+            <dd className="text-gray-900 dark:text-gray-200">{app.minimumOsVersion}</dd>
+            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.seller")}</dt>
+            <dd className="text-gray-900 dark:text-gray-200">{app.sellerName}</dd>
+            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.released")}</dt>
             <dd className="text-gray-900 dark:text-gray-200">
               {new Date(app.releaseDate).toLocaleDateString()}
             </dd>
@@ -296,31 +278,21 @@ export default function ProductDetail() {
 
         {app.description && (
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 sm:p-6">
-            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">
-              {t("search.product.description")}
-            </h2>
-            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
-              {app.description}
-            </p>
+            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">{t("search.product.description")}</h2>
+            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{app.description}</p>
           </section>
         )}
 
         {app.releaseNotes && (
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 sm:p-6">
-            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">
-              {t("search.product.releaseNotes")}
-            </h2>
-            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
-              {app.releaseNotes}
-            </p>
+            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">{t("search.product.releaseNotes")}</h2>
+            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{app.releaseNotes}</p>
           </section>
         )}
 
         {app.screenshotUrls && app.screenshotUrls.length > 0 && (
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 sm:p-6">
-            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">
-              {t("search.product.screenshots")}
-            </h2>
+            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">{t("search.product.screenshots")}</h2>
             <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {app.screenshotUrls.map((url, i) => (
                 <img
