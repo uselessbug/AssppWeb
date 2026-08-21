@@ -3,8 +3,6 @@ import { MoonIcon, SunIcon, SystemIcon } from '../common/icons';
 import { useSettingsStore } from '../../store/settings';
 
 export default function MobileHeader() {
-  const { t } = useTranslation();
-
   return (
     <>
       {/* Use fixed instead of sticky to prevent PWA overscroll gap, with safe-top / 使用 fixed 替代 sticky 防止 PWA 下拉出现空白缝隙，保留 safe-top */}
@@ -21,7 +19,7 @@ export default function MobileHeader() {
           <ThemeToggle />
         </div>
       </header>
-      {/* Spacer to occupy the space of the fixed header in the document flow / 为 fixed 定位的顶栏提供占位，防止下方内容被遮挡 */}
+      {/* 为 fixed 定位的顶栏提供占位，防止下方内容被遮挡 */}
       <div className="md:hidden safe-top">
         <div className="h-14" />
       </div>

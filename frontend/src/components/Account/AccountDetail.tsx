@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import Spinner from "../common/Spinner";
+import LoadingState from "../common/LoadingState";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useToastStore } from "../../store/toast";
 import { authenticate, AuthenticationError } from "../../apple/authenticate";
@@ -37,7 +38,7 @@ export default function AccountDetail() {
   if (storeLoading) {
     return (
       <PageContainer title={t("accounts.title")}>
-        <div className="text-center text-gray-500 py-12">{t("loading")}</div>
+        <LoadingState label={t("loading")} />
       </PageContainer>
     );
   }
@@ -151,6 +152,7 @@ export default function AccountDetail() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={6}
+                autoComplete="one-time-code"
                 value={reauthCode}
                 onChange={(e) => setReauthCode(e.target.value)}
                 disabled={reauthing}

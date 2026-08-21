@@ -22,7 +22,7 @@ export default function CountrySelect({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       aria-label={t('regions.all')}
-      className={`rounded-xl border border-gray-300/90 bg-gray-100 px-3.5 py-2.5 text-base text-gray-900 shadow-sm shadow-gray-950/5 outline-none transition-colors focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:shadow-black/20 dark:focus:border-blue-400 dark:focus:ring-blue-400/15 dark:disabled:bg-gray-800 dark:disabled:text-gray-500 ${className}`}
+      className={`rounded-xl border-0 bg-gray-100 px-3.5 py-2.5 text-base text-gray-900 outline-none transition-colors focus:ring-2 focus:ring-blue-500/40 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:bg-gray-800 dark:text-white dark:disabled:bg-gray-800 dark:disabled:text-gray-500 ${className}`}
       disabled={disabled}
     >
       {availableCountryCodes.length > 0 && (
