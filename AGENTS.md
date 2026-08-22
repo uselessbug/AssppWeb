@@ -4,7 +4,7 @@
 
 - **Indentation**: 2 spaces
 - **Semicolons**: Required
-- **Quotes**: Single quotes for strings
+- **Quotes**: Double quotes for strings
 - **Naming**: PascalCase for types/interfaces, camelCase for variables/functions
 
 ## Project Structure
@@ -144,14 +144,25 @@ The backend proxies the bag endpoint via `GET /api/bag?guid=<deviceId>` using No
 
 ### Frontend Shared Components (`components/common/`)
 
-- **Alert** — `<Alert type="error|success|warning">` for status messages (replaces inline alert divs)
-- **Modal** — `<Modal open={bool} onClose={fn} title={string}>` for dialog overlays
-- **Spinner** — inline SVG loading spinner for buttons
-- **CountrySelect** — optgroup-based country dropdown with "Available Regions" + "All Regions"
-- **AppIcon** — 3 sizes (40/56/80px), rounded corners, letter fallback
-- **Badge** — color-coded status pill
-- **ProgressBar** — gray track, blue fill, percentage label
-- **icons** — shared SVG icon components (`HomeIcon`, `AccountsIcon`, `SearchIcon`, `DownloadsIcon`, `SettingsIcon`, `SunIcon`, `MoonIcon`, `SystemIcon`) used by Sidebar, MobileNav, and MobileHeader
+Before creating a new reusable UI primitive, check `frontend/src/components/common/` and prefer an existing component when it fits. Keep shared components focused on cross-feature patterns rather than feature-specific behavior.
+
+Current shared components include:
+
+- **Alert** — status and feedback messages
+- **AppIcon** — app artwork with size variants and fallback rendering
+- **Badge** — compact status pills
+- **ConfirmModal** — reusable confirmation dialogs built on the shared modal pattern
+- **CountrySelect** — grouped country/region selector
+- **EmptyState** — standardized empty-list and no-result states
+- **GlobalDownloadNotifier** — app-wide download notifications
+- **LoadingState** — standardized page/section loading state
+- **Modal** — general dialog overlay and container
+- **ProgressBar** — download/progress visualization
+- **Spinner** — compact inline loading indicator
+- **ToastContainer** — global toast presentation
+- **icons** — shared navigation and theme SVG icons
+
+Treat this list as descriptive rather than exhaustive: check the directory itself before introducing new shared UI code.
 
 ### Frontend Shared Utilities (`utils/`)
 
@@ -273,53 +284,63 @@ The `e2e/docker-test.sh` script automates the full flow: build, test, and verify
 
 **Task**: Authenticate Apple accounts → search apps → acquire licenses → download/compile IPAs → install.
 
-**Feel**: A sharp utility. Precise like a package manager, clear like Apple's developer tools. Confident, quiet, functional. Not playful, not corporate.
+**Feel**: Calm, modern, utility-focused, and slightly Apple-like without imitating native UI. Prefer clear hierarchy, generous spacing, rounded surfaces, restrained depth, and direct feedback over dense or ornamental layouts.
 
 ### Design Tokens
 
-- **Primary accent**: `blue-600` / `blue-700` (hover) — trust + system authority, echoes Apple dev tooling
-- **Backgrounds**: `gray-50` (app), `white` (cards/surfaces)
-- **Text**: `gray-900` (primary), `gray-600` (secondary), `gray-400` (tertiary)
-- **Borders**: `gray-200` (default), `gray-300` (hover) — use sparingly, prefer background tinting for containment
-- **Status badges**: Muted tones — `green` (completed), `blue` (downloading), `yellow` (paused), `purple` (injecting), `red` (failed), `gray` (pending)
-- **Alerts**: `red-50`/`red-700` (error), `amber-50`/`amber-700` (warning), `green-50`/`green-700` (success)
+- **Primary accent**: `blue-600` with `blue-700` hover/pressed states; use blue for primary actions, active navigation, focus, and progress
+- **Backgrounds**: `gray-50` for the light page background and `gray-950` for the dark page background; primary surfaces use `white` / `gray-900`
+- **Text**: `gray-900` / `white` for primary text, `gray-500`–`gray-600` / `gray-400` for secondary text, and `gray-400` / `gray-500` for tertiary text
+- **Surface definition**: prefer subtle rings, dividers, and low-elevation shadows over heavy borders
+- **Status colors**: keep semantic status colors muted and consistent; do not use saturated status colors as large decorative fills
+- **Dark mode**: every persistent light surface, text role, border/ring, and interactive state must have an intentional dark counterpart
 
 ### Typography
 
-- System font stack (Inter / SF Pro fallback)
-- Weight scale: `500` (medium, workhorse), `600` (semibold, page titles and key labels only). Avoid `700` in body.
-- Size scale: `xs` (12px), `sm` (14px), `base` (16px), `lg` (18px), `xl` (20px), `2xl` (24px)
+- Use the existing system-font stack and the current Tailwind typography scale
+- Default UI text is compact (`text-sm` / `text-base`) with `font-medium` or `font-semibold` for emphasis
+- Page titles and major section headings establish hierarchy through size and weight rather than decorative styling
+- Avoid unnecessary `font-bold` in ordinary body copy and controls unless an existing component establishes that pattern
 
 ### Spacing
 
-- Base unit: `4px`
-- Consistent vertical rhythm: `space-y-4` within sections, `space-y-6` between sections
-- Page padding: `px-4 sm:px-6`, `py-6`
-- Container: `max-w-5xl` (1024px)
+- Preserve the existing 4px Tailwind spacing rhythm
+- Favor generous page and card spacing over dense packing; common gaps are `gap-3`/`gap-4` and section spacing is typically `space-y-4`/`space-y-6`
+- Keep responsive padding aligned with existing layout components instead of introducing one-off page gutters
+- Prefer the existing `PageContainer` and layout primitives for page width and spacing decisions
 
 ### Depth & Surfaces
 
-- Single elevation: white cards on `gray-50` background
-- No shadows. Borders only where they serve function (form inputs, dividers, interactive boundaries)
-- Rounded corners: `rounded-lg` (8px) for cards, `rounded-md` (6px) for inputs/buttons, `rounded-full` for badges
-- Prefer background tinting (`gray-50` → `gray-100`) over borders for visual containment
+- Primary content surfaces are typically `bg-white dark:bg-gray-900` on the page background
+- Large cards and grouped lists commonly use generous rounding such as `rounded-2xl` or `rounded-3xl`
+- Use restrained depth such as `shadow-sm` and subtle rings like `ring-1 ring-black/5 dark:ring-white/10` when the current surrounding UI uses elevation
+- Use dividers (`divide-*`) for grouped rows and list sections rather than boxing every child in its own border
+- Avoid heavy drop shadows, thick borders, or stacked elevation levels; depth should remain subtle
 
 ### Layout
 
-- Desktop: fixed sidebar (240px / `w-60`) + scrollable main content
-- Mobile: bottom tab bar with safe-area padding
-- Breakpoint: `md:` (768px) for sidebar ↔ bottom nav switch
-- Page structure: `PageContainer` with title + optional action button, then content
+- Desktop: fixed sidebar (`w-60`) + scrollable main content
+- Mobile: bottom navigation with safe-area padding
+- Breakpoint: `md:` for sidebar ↔ bottom-navigation switching unless the existing component uses a more specific responsive rule
+- Page structure: use `PageContainer` with a title and optional action, followed by feature content
+- Keep primary actions visually clear but avoid filling every section with competing accent buttons
 
 ### Component Patterns
 
-- **Buttons**: Primary (`bg-blue-600 text-white`), Secondary (`border border-gray-300 text-gray-700`), Danger (`text-red-600 border-red-300`)
-- **Inputs**: `rounded-md border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500`
-- **Cards**: White background, `border border-gray-200 rounded-lg`, no shadow
-- **Badge**: Color-coded pill (`rounded-full px-2 py-0.5 text-xs font-medium`)
-- **ProgressBar**: Gray track, blue fill, percentage label
-- **AppIcon**: 3 sizes (40/56/80px), rounded corners, letter fallback
-- **Nav active state**: `bg-blue-50 text-blue-700` (sidebar), `text-blue-600` (mobile)
+- **Primary actions**: blue fill, white text, `font-semibold`, and pill-like or strongly rounded geometry; current major CTAs commonly use `rounded-full`
+- **Secondary actions**: neutral surface/border treatment with explicit hover and dark-mode states; match neighboring controls rather than inventing a new shape
+- **Inputs/selects**: use the existing form-control radius, neutral border, and blue focus ring patterns already present in the feature being edited
+- **Cards/grouped lists**: white/dark surface, generous radius, subtle ring and/or `shadow-sm`, with dividers for repeated rows
+- **Badges/chips**: `rounded-full`, compact padding, muted background, and concise labels
+- **Empty/loading states**: use the shared `EmptyState` and `LoadingState` components where applicable instead of reproducing layout and typography inline
+- **Modals/confirmation**: use `Modal` and `ConfirmModal`; preserve their existing spacing, radius, overlay, and action hierarchy
+- **Toasts/notifications**: use the shared toast/notifier infrastructure rather than feature-local fixed-position alerts
+- **App icons/avatars**: reuse `AppIcon` for app artwork and follow existing circular avatar patterns for accounts
+- **Navigation**: preserve existing sidebar/mobile active-state treatment and shared icons rather than introducing feature-specific navigation styling
+
+### Consistency Rule
+
+When modifying UI, treat the current implementation as the source of truth. Match adjacent screens and shared components before introducing a new token, radius, shadow, control shape, or layout pattern. If a recurring pattern is needed in multiple features, prefer extending or adding a shared component instead of duplicating styling.
 
 ## Frontend Cleanup Rules
 
@@ -392,11 +413,9 @@ Always pair light and dark variants consistently:
 
 ### Code Duplication Prevention
 
-When the same UI pattern appears in 3+ components, extract it to `components/common/`. Current shared components:
+Before creating or duplicating a reusable UI pattern, inspect `components/common/` first. Extract a shared component when the same pattern is used across multiple features or when an existing shared primitive can be cleanly extended.
 
-- `Alert`, `Modal`, `Spinner`, `CountrySelect`, `AppIcon`, `Badge`, `ProgressBar`, `icons`
-
-When adding new common components, update this AGENTS.md file accordingly.
+Current shared components include `Alert`, `AppIcon`, `Badge`, `ConfirmModal`, `CountrySelect`, `EmptyState`, `GlobalDownloadNotifier`, `LoadingState`, `Modal`, `ProgressBar`, `Spinner`, `ToastContainer`, and `icons`. Treat this list as a convenience snapshot, not the authoritative inventory; the directory itself is the source of truth.
 
 ### Authenticated API Downloads
 
