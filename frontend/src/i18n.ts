@@ -7,22 +7,38 @@ import zhTWTranslation from "./locales/zh-TW.json";
 import jaTranslation from "./locales/ja.json";
 import koTranslation from "./locales/ko.json";
 import ruTranslation from "./locales/ru.json";
+import uiFixes from "./locales/uiFixes.json";
 import { downloadLibraryTranslations } from "./locales/downloadLibrary";
 import { toastUiTranslations } from "./locales/toastUi";
 
 function withUiExtras<
   T extends {
     downloads: Record<string, unknown>;
+    settings: {
+      data: Record<string, unknown>;
+    } & Record<string, unknown>;
     toast: Record<string, unknown>;
   },
   D extends Record<string, unknown>,
   U extends Record<string, unknown>,
->(translation: T, downloadsExtra: D, toastExtra: U) {
+  F extends {
+    downloads: Record<string, unknown>;
+    settings: { data: Record<string, unknown> };
+  },
+>(translation: T, downloadsExtra: D, toastExtra: U, fixes: F) {
   return {
     ...translation,
     downloads: {
       ...translation.downloads,
       ...downloadsExtra,
+      ...fixes.downloads,
+    },
+    settings: {
+      ...translation.settings,
+      data: {
+        ...translation.settings.data,
+        ...fixes.settings.data,
+      },
     },
     toast: {
       ...translation.toast,
@@ -37,6 +53,7 @@ const resources = {
       enUSTranslation,
       downloadLibraryTranslations["en-US"],
       toastUiTranslations["en-US"],
+      uiFixes["en-US"],
     ),
   },
   "zh-CN": {
@@ -44,6 +61,7 @@ const resources = {
       zhCNTranslation,
       downloadLibraryTranslations["zh-CN"],
       toastUiTranslations["zh-CN"],
+      uiFixes["zh-CN"],
     ),
   },
   "zh-TW": {
@@ -51,6 +69,7 @@ const resources = {
       zhTWTranslation,
       downloadLibraryTranslations["zh-TW"],
       toastUiTranslations["zh-TW"],
+      uiFixes["zh-TW"],
     ),
   },
   ja: {
@@ -58,6 +77,7 @@ const resources = {
       jaTranslation,
       downloadLibraryTranslations.ja,
       toastUiTranslations.ja,
+      uiFixes.ja,
     ),
   },
   ko: {
@@ -65,6 +85,7 @@ const resources = {
       koTranslation,
       downloadLibraryTranslations.ko,
       toastUiTranslations.ko,
+      uiFixes.ko,
     ),
   },
   ru: {
@@ -72,6 +93,7 @@ const resources = {
       ruTranslation,
       downloadLibraryTranslations.ru,
       toastUiTranslations.ru,
+      uiFixes.ru,
     ),
   },
 };

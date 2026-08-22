@@ -10,6 +10,10 @@ import { useToastStore } from "../../store/toast";
 import { lookupApp } from "../../api/search";
 import { listVersions } from "../../apple/versionFinder";
 import { firstAccountCountry } from "../../utils/account";
+import {
+  readDownloadCountry,
+  writeDownloadCountry,
+} from "../../utils/downloadPreferences";
 import { getErrorMessage } from "../../utils/error";
 import { countryCodeMap, storeIdToCountry } from "../../apple/config";
 import type { Software } from "../../types";
@@ -26,8 +30,9 @@ export default function AddDownload() {
   } = useDownloadAction();
 
   const [bundleId, setBundleId] = useState("");
-  const [country, setCountry] = useState("US");
-  const [countryTouched, setCountryTouched] = useState(false);
+  const [initialCountry] = useState(readDownloadCountry);
+  const [country, setCountry] = useState(initialCountry || "US");
+  const [countryTouched, setCountryTouched] = useState(Boolean(initialCountry));
   const [selectedAccount, setSelectedAccount] = useState("");
   const [app, setApp] = useState<Software | null>(null);
   const [versions, setVersions] = useState<string[]>([]);
@@ -175,6 +180,7 @@ export default function AddDownload() {
               onChange={(v) => {
                 setCountry(v);
                 setCountryTouched(true);
+                writeDownloadCountry(v);
               }}
               availableCountryCodes={availableCountryCodes}
               allCountryCodes={allCountryCodes}

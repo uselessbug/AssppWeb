@@ -1,0 +1,62 @@
+{
+  "en-US": {
+    "downloads": {
+      "checkUpdatesNone": "No updates found."
+    },
+    "settings": {
+      "data": {
+        "exportFailed": "Failed to export accounts."
+      }
+    }
+  },
+  "zh-CN": {
+    "downloads": {
+      "checkUpdatesNone": "没有发现新版本。"
+    },
+    "settings": {
+      "data": {
+        "exportFailed": "账号导出失败。"
+      }
+    }
+  },
+  "zh-TW": {
+    "downloads": {
+      "checkUpdatesNone": "沒有發現新版本。"
+    },
+    "settings": {
+      "data": {
+        "exportFailed": "帳號匯出失敗。"
+      }
+    }
+  },
+  "ja": {
+    "downloads": {
+      "checkUpdatesNone": "新しいバージョンは見つかりませんでした。"
+    },
+    "settings": {
+      "data": {
+        "exportFailed": "アカウントのエクスポートに失敗しました。"
+      }
+    }
+  },
+  "ko": {
+    "downloads": {
+      "checkUpdatesNone": "새 버전이 없습니다."
+    },
+    "settings": {
+      "data": {
+        "exportFailed": "계정 내보내기에 실패했습니다."
+      }
+    }
+  },
+  "ru": {
+    "downloads": {
+      "checkUpdatesNone": "Обновления не найдены."
+    },
+    "settings": {
+      "data": {
+        "exportFailed": "Не удалось экспортировать аккаунты."
+      }
+    }
+  }
+}
