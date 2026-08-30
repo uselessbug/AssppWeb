@@ -19,6 +19,8 @@ export const SAP_HEAP_SIZE = 64 << 20;
 export const SAP_STACK_SIZE = 8 << 20;
 export const SAP_STACK_END = SAP_STACK_BASE + SAP_STACK_SIZE;
 
+const X86_REG_RFLAGS = 253;
+
 export type SapRegister =
   | "rax"
   | "rdi"
@@ -28,7 +30,8 @@ export type SapRegister =
   | "r8"
   | "r9"
   | "rip"
-  | "rsp";
+  | "rsp"
+  | "rflags";
 
 export type CodeHookHandler = (address: number, size: number) => void;
 
@@ -178,6 +181,8 @@ export class BrowserUnicornEngine {
         return this.module.X86_REG_RIP;
       case "rsp":
         return this.module.X86_REG_RSP;
+      case "rflags":
+        return X86_REG_RFLAGS;
     }
   }
 
