@@ -91,23 +91,12 @@ export class BrowserUnicornEngine {
   ): BrowserUnicornCodeHook {
     this.assertOpen();
     this.assertSafeRange(begin, Math.max(0, end - begin));
+    return this.addHook(this.module.HOOK_CODE, handler, begin, end);
+  }
 
-    const hook = this.engine.hook_add(
-      this.module.HOOK_CODE,
-      (_engine: unknown, address: bigint | number, size: number) => {
-        const numericAddress = Number(address);
-        if (!Number.isSafeInteger(numericAddress)) {
-          this.engine.emu_stop();
-          throw new Error("Unicorn code hook returned an unsafe guest address");
-        }
-        handler(numericAddress, size);
-      },
-      undefined,
-      begin,
-      end,
-    );
-
-    return new BrowserUnicornCodeHook(this.engine, hook);
+  addBlockHook(handler: CodeHookHandler): BrowserUnicornCodeHook {
+    this.assertOpen();
+    return this.addHook(this.module.HOOK_BLOCK, handler);
   }
 
   startBounded(
@@ -120,7 +109,6 @@ export class BrowserUnicornEngine {
     this.assertSafeRange(begin, 0);
     this.assertSafeRange(until, 0);
 
-    // Unicorn's timeout is expressed in microseconds.
     this.engine.emu_start(
       begin,
       until,
@@ -138,6 +126,33 @@ export class BrowserUnicornEngine {
     if (this.closed) return;
     this.closed = true;
     this.engine.close();
+  }
+
+  private addHook(
+    type: number,
+    handler: CodeHookHandler,
+    begin?: number,
+    end?: number,
+  ): BrowserUnicornCodeHook {
+    const hook = this.engine.hook_add(
+      type,
+      (_engine: unknown, address: bigint | number, size: number) => {
+        const numericAddress = Number(address);
+        if (!Number.isSafeInteger(numericAddress)) {
+          try {
+            this.engine.emu_stop();
+          } finally {
+            throw new Error("Unicorn hook returned an unsafe guest address");
+          }
+        }
+        handler(numericAddress, size);
+      },
+      undefined,
+      begin,
+      end,
+    );
+
+    return new BrowserUnicornCodeHook(this.engine, hook);
   }
 
   private registerId(register: SapRegister): number {
