@@ -78,6 +78,7 @@ export default function ToastContainer() {
 
   // 正在播放退出动画的 toast：store 已移除它们，但暂留渲染直至动画结束
   const [leaving, setLeaving] = useState<Record<string, Toast>>({});
+  const [copiedId, setCopiedId] = useState<string>();
   const prevToastsRef = useRef<Toast[]>([]);
 
   useEffect(() => {
@@ -109,6 +110,42 @@ export default function ToastContainer() {
 
     prevToastsRef.current = toasts;
   }, [toasts, leaving]);
+
+  async function copyToast(toast: Toast) {
+    const text = toast.title ? `${toast.title}\n${toast.message}` : toast.message;
+    let copied = false;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      }
+    } catch {
+      // Fall through to the selection-based fallback for older iOS/PWA cases.
+    }
+
+    if (!copied) {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      textarea.style.top = "0";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      copied = document.execCommand("copy");
+      textarea.remove();
+    }
+
+    if (copied) {
+      setCopiedId(toast.id);
+      window.setTimeout(() => {
+        setCopiedId((current) => (current === toast.id ? undefined : current));
+      }, 1500);
+    }
+  }
 
   const allToasts = [
     ...toasts.map((toast) => ({ toast, leaving: false })),
@@ -171,37 +208,63 @@ export default function ToastContainer() {
               </p>
             </div>
 
-            <button
-              onClick={() => {
-                if (isLeaving) {
-                  setLeaving((prev) => {
-                    const next = { ...prev };
-                    delete next[toast.id];
-                    return next;
-                  });
-                } else {
-                  removeToast(toast.id);
-                }
-              }}
-              className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-              aria-label={t("toast.close")}
-            >
-              <svg
-                aria-hidden="true"
-                focusable="false"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+            <div className="-mr-1 -mt-1 flex shrink-0 items-center gap-1">
+              <button
+                onClick={() => void copyToast(toast)}
+                className="flex h-8 min-w-8 items-center justify-center gap-1 rounded-full px-2 text-xs font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                aria-label={t("toast.copy")}
+                title={t("toast.copy")}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+                <svg
+                  aria-hidden="true"
+                  focusable="false"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V5a2 2 0 012-2h7a2 2 0 012 2v7a2 2 0 01-2 2h-2M7 9h7a2 2 0 012 2v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7a2 2 0 012-2z"
+                  />
+                </svg>
+                {copiedId === toast.id && <span>{t("toast.copied")}</span>}
+              </button>
+
+              <button
+                onClick={() => {
+                  if (isLeaving) {
+                    setLeaving((prev) => {
+                      const next = { ...prev };
+                      delete next[toast.id];
+                      return next;
+                    });
+                  } else {
+                    removeToast(toast.id);
+                  }
+                }}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                aria-label={t("toast.close")}
+              >
+                <svg
+                  aria-hidden="true"
+                  focusable="false"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
         ))}
       </div>
