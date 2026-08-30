@@ -1,8 +1,10 @@
 import { authHeaders } from "../api/client";
 import { parsePlist } from "./plist";
+import type { SapConfig } from "./sap";
 
 export interface BagOutput {
   authURL: string;
+  sapConfig?: SapConfig;
 }
 
 export const defaultAuthURL =
@@ -56,15 +58,16 @@ export async function fetchBag(deviceId: string): Promise<BagOutput> {
     const authURL =
       (dict.authenticateAccount as string | undefined) ??
       (urlBag?.authenticateAccount as string | undefined);
+    const sapConfig = readSapConfig(urlBag);
 
     if (!authURL) {
       console.warn(
         "[Bag] authenticateAccount URL not found in bag, using default auth endpoint",
       );
-      return { authURL: defaultAuthURL };
+      return { authURL: defaultAuthURL, sapConfig };
     }
 
-    return { authURL: normalizeAuthURL(authURL) };
+    return { authURL: normalizeAuthURL(authURL), sapConfig };
   } catch (error) {
     console.warn(
       `[Bag] Failed to fetch/parse bag, using default auth endpoint: ${
@@ -73,4 +76,28 @@ export async function fetchBag(deviceId: string): Promise<BagOutput> {
     );
     return { authURL: defaultAuthURL };
   }
+}
+
+function readSapConfig(
+  urlBag: Record<string, any> | undefined,
+): SapConfig | undefined {
+  if (!urlBag) return undefined;
+
+  const setupURL = urlBag["sign-sap-setup"];
+  const certificateURL = urlBag["sign-sap-setup-cert"];
+  const rawVersion = urlBag["sign-sap-version"];
+  const version =
+    typeof rawVersion === "number" ? rawVersion : Number(String(rawVersion ?? ""));
+
+  if (
+    typeof setupURL !== "string" ||
+    !setupURL ||
+    typeof certificateURL !== "string" ||
+    !certificateURL ||
+    !Number.isInteger(version)
+  ) {
+    return undefined;
+  }
+
+  return { setupURL, certificateURL, version };
 }

@@ -33,6 +33,35 @@ describe("apple/bag", () => {
     );
   });
 
+  it("extracts SAP setup configuration from urlBag", async () => {
+    const xml = buildPlist({
+      urlBag: {
+        authenticateAccount:
+          "https://buy.itunes.apple.com/WebObjects/MZFinance.woa/wa/authenticate",
+        "sign-sap-setup": "https://example.apple.com/setup",
+        "sign-sap-setup-cert": "https://example.apple.com/cert",
+        "sign-sap-version": "200",
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () => xml,
+      }),
+    );
+
+    await expect(fetchBag("aabbccddeeff")).resolves.toEqual({
+      authURL:
+        "https://buy.itunes.apple.com/WebObjects/MZFinance.woa/wa/authenticate",
+      sapConfig: {
+        setupURL: "https://example.apple.com/setup",
+        certificateURL: "https://example.apple.com/cert",
+        version: 200,
+      },
+    });
+  });
+
   it("normalizes a native auth endpoint at the plist root to the /fast/ path", async () => {
     const xml = buildPlist({
       authenticateAccount: "https://auth.itunes.apple.com/auth/v1/native",
@@ -82,7 +111,7 @@ describe("apple/bag", () => {
       }),
     );
 
-    const result = await fetchBag("aabbccddeeff");
+    const result = await fetchBag("aabbccddeeff\");
 
     expect(result.authURL).toBe(defaultAuthURL);
   });
