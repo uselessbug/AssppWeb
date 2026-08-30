@@ -1,4 +1,5 @@
 import { registerBrowserSapSignerFactory } from "../sap";
+import { BrowserSapMachine } from "./machine";
 
 const UNICORN_VERSION = "2.1.4";
 const UNICORN_SCRIPT_URL = `https://cdn.jsdelivr.net/npm/@alexaltea/unicorn-js@${UNICORN_VERSION}/dist/unicorn_x86.js`;
@@ -77,8 +78,11 @@ export function installExperimentalBrowserSapRuntime() {
     const module = await loadUnicornX86Module();
     await runUnicornX64SmokeTest(module);
 
+    const machine = BrowserSapMachine.open(module);
+    machine.close();
+
     throw new Error(
-      "Browser Unicorn x86_64 runtime is available, but the Apple SAP Mach-O machine and shims have not been ported yet",
+      "Browser SAP guest machine bootstrapped successfully; Apple SAP assets and Mach-O loader are the next required stage",
     );
   });
 
@@ -147,9 +151,6 @@ export async function runUnicornX64SmokeTest(
       );
     }
 
-    // ipatool maps scratch/heap/stack in this address range. Exercise one of
-    // those high addresses explicitly so Safari failures in the JS-to-WASM i64
-    // bridge surface before we attempt to load any Apple Mach-O image.
     engine.mem_map(SAP_HIGH_ADDRESS, 0x1000, module.PROT_ALL);
     engine.mem_write(SAP_HIGH_ADDRESS, highAddressProbe);
     const roundTrip = engine.mem_read(SAP_HIGH_ADDRESS, highAddressProbe.length);
