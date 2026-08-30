@@ -21,6 +21,7 @@ import {
 import type { UnicornX86Module } from "./unicornRuntime";
 
 const SAP_SHIM_SIZE = 0x00100000;
+const SAP_EXECUTION_TIMEOUT_MS = 10_000;
 const CORE_FP_EXPORT_NAMES = [
   "_WIn9UJ86JKdV4dM",
   "_X46O5IeS",
@@ -244,16 +245,25 @@ export class BrowserSapMachine {
 
     let lastBlockAddress: number | undefined;
     let lastBlockSize = 0;
+    let timeoutError: Error | undefined;
+    const deadline = performance.now() + SAP_EXECUTION_TIMEOUT_MS;
     const traceHook = this.engine.addBlockHook((address, size) => {
       lastBlockAddress = address;
       lastBlockSize = size;
+      if (!timeoutError && performance.now() >= deadline) {
+        timeoutError = new Error(
+          `SAP guest execution exceeded ${SAP_EXECUTION_TIMEOUT_MS}ms browser limit`,
+        );
+        this.engine.stop();
+      }
     });
 
     try {
-      this.engine.startBounded(functionAddress, SAP_RETURN_ADDRESS);
+      this.engine.startBrowserSafe(functionAddress, SAP_RETURN_ADDRESS);
     } catch (error) {
       const fault = this.shims.getFault();
       if (fault) throw fault;
+      if (timeoutError) throw timeoutError;
       const message = error instanceof Error ? error.message : String(error);
       const stderr = this.engine.diagnosticStderr();
       throw new Error(
@@ -268,6 +278,7 @@ export class BrowserSapMachine {
       }
     }
 
+    if (timeoutError) throw timeoutError;
     const fault = this.shims.getFault();
     if (fault) throw fault;
 
