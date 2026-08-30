@@ -319,7 +319,7 @@ The `e2e/docker-test.sh` script automates the full flow: build, test, and verify
 
 ### Layout
 
-- Desktop: fixed sidebar (`w-60`) + scrollable main content
+- Desktop: sticky sidebar (`w-[17rem]`) + scrollable main content
 - Mobile: bottom navigation with safe-area padding
 - Breakpoint: `md:` for sidebar ↔ bottom-navigation switching unless the existing component uses a more specific responsive rule
 - Page structure: use `PageContainer` with a title and optional action, followed by feature content
