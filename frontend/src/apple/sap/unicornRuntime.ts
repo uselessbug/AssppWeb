@@ -1,4 +1,5 @@
 import { registerBrowserSapSignerFactory } from "../sap";
+import { extractAppleSapAssets } from "./assetExtractor";
 import { inspectAppleSapPackage } from "./assets";
 import { BrowserSapMachine } from "./machine";
 
@@ -54,6 +55,7 @@ interface SapDebugApi {
   unicornVersion: string;
   runUnicornX64SmokeTest: () => Promise<UnicornSmokeResult>;
   inspectAppleSapPackage: typeof inspectAppleSapPackage;
+  extractAppleSapAssets: typeof extractAppleSapAssets;
 }
 
 declare global {
@@ -83,9 +85,9 @@ export function installExperimentalBrowserSapRuntime() {
     const machine = BrowserSapMachine.open(module);
     machine.close();
 
-    const probe = await inspectAppleSapPackage();
+    const extraction = await extractAppleSapAssets();
     throw new Error(
-      `Browser SAP asset XAR probe succeeded: Payload=${probe.payloadLength} bytes, bzip@${probe.bzipStreamOffset}, probe=${probe.bzipProbeHex}; bzip2/CPIO extraction and Mach-O loading are the next required stage`,
+      `Browser SAP assets extracted and SHA-256 verified: blocks=${extraction.blocksDecoded}, compressed=${extraction.compressedBytesRead} bytes, decompressed=${extraction.decompressedBytesRead} bytes; Mach-O loading and shims are the next required stage`,
     );
   });
 
@@ -95,6 +97,7 @@ export function installExperimentalBrowserSapRuntime() {
       runUnicornX64SmokeTest: async () =>
         runUnicornX64SmokeTest(await loadUnicornX86Module()),
       inspectAppleSapPackage,
+      extractAppleSapAssets,
     };
   }
 }
