@@ -19,6 +19,7 @@ const HOOK_SMOKE_SERVICE_ADDRESS = 0x111000;
 const HOOK_SMOKE_STACK_ADDRESS = 0x112000;
 const HOOK_SMOKE_STACK_POINTER = HOOK_SMOKE_STACK_ADDRESS + 0x800;
 const HOOK_SMOKE_EXPECTED_RAX = 0x7766554433221100n;
+const UNICORN_STDERR_LIMIT = 32;
 
 const CORE_FP_EXPORTS = [
   "_WIn9UJ86JKdV4dM",
@@ -54,6 +55,11 @@ export interface UnicornEngine {
   close(): void;
 }
 
+interface UnicornModuleOptions {
+  print?: (text: string) => void;
+  printErr?: (text: string) => void;
+}
+
 export interface UnicornX86Module {
   ARCH_X86: number;
   MODE_64: number;
@@ -70,6 +76,7 @@ export interface UnicornX86Module {
   X86_REG_RIP: number;
   X86_REG_RSP: number;
   Unicorn: new (arch: number, mode: number) => UnicornEngine;
+  __assppStderr?: string[];
 }
 
 interface SapDebugApi {
@@ -83,7 +90,9 @@ interface SapDebugApi {
 
 declare global {
   interface Window {
-    MUnicorn?: () => Promise<UnicornX86Module>;
+    MUnicorn?: (
+      options?: UnicornModuleOptions,
+    ) => Promise<UnicornX86Module>;
     __assppSapDebug?: SapDebugApi;
   }
 }
@@ -95,7 +104,8 @@ export interface UnicornSmokeResult {
 }
 
 export interface UnicornHookSmokeResult {
-  hookCalled: boolean;
+  codeHookCalled: boolean;
+  blockHookCalled: boolean;
   stackReturnAddress: string;
   rax: string;
 }
@@ -139,8 +149,7 @@ export function installExperimentalBrowserSapRuntime() {
       try {
         machine.close();
       } catch {
-        // A fatal Emscripten abort can invalidate the Unicorn instance. Do not
-        // let best-effort cleanup replace the original execution failure.
+        // Preserve the original execution error after a fatal Emscripten abort.
       }
     }
   });
@@ -201,7 +210,18 @@ export async function loadUnicornX86Module(): Promise<UnicornX86Module> {
       throw new Error("Unicorn.js loaded without exposing MUnicorn");
     }
 
-    return window.MUnicorn();
+    const stderr: string[] = [];
+    const module = await window.MUnicorn({
+      print: (text) => console.log(text),
+      printErr: (text) => {
+        const value = String(text);
+        stderr.push(value);
+        if (stderr.length > UNICORN_STDERR_LIMIT) stderr.shift();
+        console.error(value);
+      },
+    });
+    module.__assppStderr = stderr;
+    return module;
   });
 
   try {
@@ -281,8 +301,10 @@ export async function runUnicornHookReentrySmokeTest(
   ]);
   const service = new Uint8Array([0xc3]);
   const engine = new module.Unicorn(module.ARCH_X86, module.MODE_64);
-  let hook: UnicornHook | undefined;
-  let hookCalled = false;
+  let codeHook: UnicornHook | undefined;
+  let blockHook: UnicornHook | undefined;
+  let codeHookCalled = false;
+  let blockHookCalled = false;
   let hookError: Error | undefined;
   let stackReturnAddress = 0n;
 
@@ -294,11 +316,17 @@ export async function runUnicornHookReentrySmokeTest(
     engine.mem_write(HOOK_SMOKE_SERVICE_ADDRESS, service);
     engine.reg_write_i64(module.X86_REG_RSP, BigInt(HOOK_SMOKE_STACK_POINTER));
 
-    hook = engine.hook_add(
+    blockHook = engine.hook_add(
+      module.HOOK_BLOCK,
+      () => {
+        blockHookCalled = true;
+      },
+    );
+    codeHook = engine.hook_add(
       module.HOOK_CODE,
       (callbackEngine: UnicornEngine, address: bigint | number) => {
         if (Number(address) !== HOOK_SMOKE_SERVICE_ADDRESS) return;
-        hookCalled = true;
+        codeHookCalled = true;
         try {
           const stackPointer = callbackEngine.reg_read_i64(module.X86_REG_RSP);
           if (
@@ -333,7 +361,10 @@ export async function runUnicornHookReentrySmokeTest(
     if (hookError) {
       throw new Error(`Unicorn code-hook re-entry smoke test failed: ${hookError.message}`);
     }
-    if (!hookCalled) {
+    if (!blockHookCalled) {
+      throw new Error("Unicorn block-hook smoke test did not enter the hook");
+    }
+    if (!codeHookCalled) {
       throw new Error("Unicorn code-hook re-entry smoke test did not enter the hook");
     }
 
@@ -352,22 +383,25 @@ export async function runUnicornHookReentrySmokeTest(
     }
 
     return {
-      hookCalled,
+      codeHookCalled,
+      blockHookCalled,
       stackReturnAddress: `0x${stackReturnAddress.toString(16)}`,
       rax: `0x${rax.toString(16)}`,
     };
   } finally {
-    if (hook) {
+    for (const hook of [codeHook, blockHook]) {
+      if (!hook) continue;
       try {
         engine.hook_del(hook);
       } catch {
-        // Preserve the original execution error if Emscripten aborted.
+        // A fatal Emscripten abort can make cleanup unavailable. Preserve the
+        // original execution error rather than masking it with hook cleanup.
       }
     }
     try {
       engine.close();
     } catch {
-      // Preserve the original execution error if Emscripten aborted.
+      // Same rationale as hook cleanup above.
     }
   }
 }
