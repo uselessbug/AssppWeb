@@ -102,19 +102,21 @@ export class BrowserUnicornEngine {
   startBounded(
     begin: number,
     until: number,
-    timeoutMs = 10_000,
     instructionCount = 100_000_000,
   ) {
     this.assertOpen();
     this.assertSafeRange(begin, 0);
     this.assertSafeRange(until, 0);
+    if (!Number.isSafeInteger(instructionCount) || instructionCount <= 0) {
+      throw new Error("SAP Unicorn instruction limit must be a positive safe integer");
+    }
 
-    this.engine.emu_start(
-      begin,
-      until,
-      timeoutMs * 1000,
-      instructionCount,
-    );
+    // Unicorn implements a non-zero timeout by creating a QEMU timer thread.
+    // The browser/TCI build is intentionally single-threaded, so that path
+    // aborts with "qemu_thread_create: Not supported". Keep the deterministic
+    // instruction-count limit here; production wall-clock cancellation belongs
+    // outside Unicorn once SAP execution is moved into a Web Worker.
+    this.engine.emu_start(begin, until, 0, instructionCount);
   }
 
   stop() {
