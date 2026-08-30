@@ -22,6 +22,8 @@ import type { UnicornX86Module } from "./unicornRuntime";
 
 const SAP_SHIM_SIZE = 0x00100000;
 const SAP_EXECUTION_TIMEOUT_MS = 10_000;
+const SAP_MAX_OUTPUT_SIZE = 16 << 20;
+const UINT32_MAX = 0xffffffff;
 const CORE_FP_EXPORT_NAMES = [
   "_WIn9UJ86JKdV4dM",
   "_X46O5IeS",
@@ -45,6 +47,11 @@ export interface BrowserSapLinkSummary {
   commerceKit: ReturnType<BrowserMachODyldImage["summary"]>;
   shimImports: number;
   shimNames: string[];
+}
+
+export interface BrowserSapExchangeResult {
+  output: Uint8Array;
+  state: number;
 }
 
 export class BrowserSapMachine {
@@ -169,23 +176,16 @@ export class BrowserSapMachine {
   }
 
   initialize(hardwareId: Uint8Array): bigint {
-    if (!this.entry || !this.shims) {
-      throw new Error("SAP guest machine is not linked for execution");
-    }
-    if (hardwareId.length === 0 || hardwareId.length > 20) {
-      throw new Error("hardware ID must contain between 1 and 20 bytes");
-    }
-
-    const hardware = new Uint8Array(24);
-    new DataView(hardware.buffer).setUint32(0, hardwareId.length, true);
-    hardware.set(hardwareId, 4);
+    const entry = this.requireEntry();
+    this.requireShims();
+    const hardware = createHardwareBlock(hardwareId);
 
     this.beginCall();
     try {
       const contextField = this.scratch(undefined, 8);
       const hardwareAddress = this.scratch(hardware, hardware.length);
       const status = this.invoke(
-        this.entry.initialize,
+        entry.initialize,
         BigInt(contextField),
         BigInt(hardwareAddress),
       );
@@ -204,6 +204,96 @@ export class BrowserSapMachine {
     }
   }
 
+  exchange(
+    version: number,
+    hardwareId: Uint8Array,
+    contextValue: bigint,
+    input: Uint8Array,
+  ): BrowserSapExchangeResult {
+    const entry = this.requireEntry();
+    this.requireShims();
+    if (!Number.isInteger(version) || version < 0 || version > UINT32_MAX) {
+      throw new Error("SAP version must be an unsigned 32-bit integer");
+    }
+    if (input.length > UINT32_MAX) {
+      throw new Error("SAP exchange input is too large");
+    }
+
+    const hardware = createHardwareBlock(hardwareId);
+    this.beginCall();
+    try {
+      const hardwareAddress = this.scratch(hardware, hardware.length);
+      const inputAddress = this.scratch(input, input.length);
+      const outputField = this.scratch(undefined, 8);
+      const lengthField = this.scratch(undefined, 8);
+      const resultField = this.scratch(undefined, 4);
+
+      const status = this.invoke(
+        entry.exchange,
+        BigInt(version),
+        BigInt(hardwareAddress),
+        contextValue,
+        BigInt(inputAddress),
+        BigInt(input.length),
+        BigInt(outputField),
+        BigInt(lengthField),
+        BigInt(resultField),
+      );
+      const signedStatus = Number(BigInt.asIntN(32, status));
+      if (signedStatus !== 0) {
+        throw new Error(`SAP exchange returned ${signedStatus}`);
+      }
+
+      return {
+        output: this.consumeOutput(outputField, lengthField),
+        state: Number(BigInt.asIntN(32, BigInt(this.readUint32(resultField)))),
+      };
+    } finally {
+      this.clearScratch();
+    }
+  }
+
+  sign(contextValue: bigint, input: Uint8Array): Uint8Array {
+    const entry = this.requireEntry();
+    this.requireShims();
+    if (input.length > UINT32_MAX) {
+      throw new Error("SAP signing input is too large");
+    }
+
+    this.beginCall();
+    try {
+      const inputAddress = this.scratch(input, input.length);
+      const outputField = this.scratch(undefined, 8);
+      const lengthField = this.scratch(undefined, 8);
+      const status = this.invoke(
+        entry.sign,
+        contextValue,
+        BigInt(inputAddress),
+        BigInt(input.length),
+        BigInt(outputField),
+        BigInt(lengthField),
+      );
+      const signedStatus = Number(BigInt.asIntN(32, status));
+      if (signedStatus !== 0) {
+        throw new Error(`SAP signing returned ${signedStatus}`);
+      }
+
+      return this.consumeOutput(outputField, lengthField);
+    } finally {
+      this.clearScratch();
+    }
+  }
+
+  teardown(contextValue: bigint) {
+    const entry = this.requireEntry();
+    this.requireShims();
+    const status = this.invoke(entry.teardown, contextValue);
+    const signedStatus = Number(BigInt.asIntN(32, status));
+    if (signedStatus !== 0) {
+      throw new Error(`SAP teardown returned ${signedStatus}`);
+    }
+  }
+
   close() {
     if (this.closed) return;
     this.closed = true;
@@ -212,6 +302,59 @@ export class BrowserSapMachine {
     } finally {
       this.engine.close();
     }
+  }
+
+  private dispose(output: bigint) {
+    const entry = this.requireEntry();
+    const status = this.invoke(entry.dispose, output);
+    const signedStatus = Number(BigInt.asIntN(32, status));
+    if (signedStatus !== 0) {
+      throw new Error(`SAP storage disposal returned ${signedStatus}`);
+    }
+  }
+
+  private consumeOutput(pointerField: number, lengthField: number): Uint8Array {
+    const pointer = this.readUint64(pointerField);
+    const length = this.readUint64(lengthField);
+    let output = new Uint8Array();
+    let outputError: Error | undefined;
+
+    try {
+      if (length > BigInt(SAP_MAX_OUTPUT_SIZE)) {
+        throw new Error(
+          `SAP output is ${length.toString()} bytes, maximum is ${SAP_MAX_OUTPUT_SIZE}`,
+        );
+      }
+      if (length === 0n) return output;
+      if (pointer === 0n) {
+        throw new Error("SAP returned a null output pointer");
+      }
+
+      output = this.engine.memRead(
+        bigintToSafeNumber(pointer, "SAP output pointer"),
+        Number(length),
+      );
+    } catch (error) {
+      outputError = error instanceof Error ? error : new Error(String(error));
+    } finally {
+      if (pointer !== 0n) {
+        try {
+          this.dispose(pointer);
+        } catch (error) {
+          const disposeError =
+            error instanceof Error ? error : new Error(String(error));
+          if (outputError) {
+            throw new Error(
+              `${outputError.message}; additionally failed to dispose SAP output: ${disposeError.message}`,
+            );
+          }
+          throw disposeError;
+        }
+      }
+    }
+
+    if (outputError) throw outputError;
+    return output;
   }
 
   private invoke(functionAddress: number, ...arguments_: bigint[]): bigint {
@@ -331,6 +474,14 @@ export class BrowserSapMachine {
     this.scratchCursor = 0;
   }
 
+  private readUint32(address: number): number {
+    const data = this.engine.memRead(address, 4);
+    return new DataView(data.buffer, data.byteOffset, data.byteLength).getUint32(
+      0,
+      true,
+    );
+  }
+
   private readUint64(address: number): bigint {
     const data = this.engine.memRead(address, 8);
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
@@ -347,6 +498,20 @@ export class BrowserSapMachine {
     view.setUint32(0, Number(normalized & 0xffffffffn), true);
     view.setUint32(4, Number((normalized >> 32n) & 0xffffffffn), true);
     this.engine.memWrite(address, data);
+  }
+
+  private requireEntry(): BrowserSapEntryPoints {
+    if (!this.entry) {
+      throw new Error("SAP guest machine is not linked for execution");
+    }
+    return this.entry;
+  }
+
+  private requireShims(): BrowserSapShimTable {
+    if (!this.shims) {
+      throw new Error("SAP guest machine is not linked for execution");
+    }
+    return this.shims;
   }
 }
 
@@ -366,6 +531,24 @@ function createBaseEngine(module: UnicornX86Module): BrowserUnicornEngine {
     engine.close();
     throw error;
   }
+}
+
+function createHardwareBlock(hardwareId: Uint8Array): Uint8Array {
+  if (hardwareId.length === 0 || hardwareId.length > 20) {
+    throw new Error("hardware ID must contain between 1 and 20 bytes");
+  }
+
+  const hardware = new Uint8Array(24);
+  new DataView(hardware.buffer).setUint32(0, hardwareId.length, true);
+  hardware.set(hardwareId, 4);
+  return hardware;
+}
+
+function bigintToSafeNumber(value: bigint, label: string): number {
+  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error(`${label} exceeds JavaScript safe integer range`);
+  }
+  return Number(value);
 }
 
 function describeGuestBlock(address: number | undefined, size: number): string {
