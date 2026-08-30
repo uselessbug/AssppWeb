@@ -40,13 +40,13 @@ export class BrowserUnicornCodeHook {
 
   constructor(
     private readonly engine: RawUnicornEngine,
-    private readonly hook: UnicornHook,
+    private readonly hook?: UnicornHook,
   ) {}
 
   close() {
     if (this.closed) return;
     this.closed = true;
-    this.engine.hook_del(this.hook);
+    if (this.hook) this.engine.hook_del(this.hook);
   }
 }
 
@@ -97,9 +97,16 @@ export class BrowserUnicornEngine {
     return this.addHook(this.module.HOOK_CODE, handler, begin, end);
   }
 
-  addBlockHook(handler: CodeHookHandler): BrowserUnicornCodeHook {
+  addBlockHook(_handler: CodeHookHandler): BrowserUnicornCodeHook {
     this.assertOpen();
-    return this.addHook(this.module.HOOK_BLOCK, handler);
+
+    // Real SAP execution currently runs without UC_HOOK_BLOCK. The recurring
+    // browser failure is an Emscripten indirect-table trap, and block hooks are
+    // themselves host function pointers invoked through that table. Keep the
+    // raw Unicorn hook smoke test in unicornRuntime.ts, but remove this global
+    // per-basic-block callback from the Apple guest until the failure source is
+    // separated from guest/TCI execution.
+    return new BrowserUnicornCodeHook(this.engine);
   }
 
   startBrowserSafe(begin: number, until: number) {
@@ -107,11 +114,10 @@ export class BrowserUnicornEngine {
     this.assertSafeRange(begin, 0);
     this.assertSafeRange(until, 0);
 
-    // Both Unicorn's timeout and instruction-count limits use host-side QEMU
-    // helpers that are unsafe in the single-threaded browser/TCI build. A
-    // non-zero timeout creates a QEMU timer thread, while a non-zero count
-    // installs the native hook_count_cb function pointer. Browser execution is
-    // bounded by the JS block hook in BrowserSapMachine instead.
+    // A non-zero Unicorn timeout creates a QEMU timer thread, and a non-zero
+    // instruction count installs hook_count_cb. Both paths are unsafe in this
+    // single-threaded browser/TCI build, so browser SAP currently uses neither.
+    // A production wall-clock bound should live outside Unicorn in a Worker.
     this.engine.emu_start(begin, until, 0, 0);
   }
 
