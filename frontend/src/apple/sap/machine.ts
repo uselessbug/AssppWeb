@@ -239,6 +239,8 @@ export class BrowserSapMachine {
 
     this.engine.regWrite("rsp", stackPointer);
     this.shims.resetFault();
+    this.engine.clearDiagnosticStderr();
+    const entryBytes = this.engine.memRead(functionAddress, 32);
 
     let lastBlockAddress: number | undefined;
     let lastBlockSize = 0;
@@ -253,8 +255,9 @@ export class BrowserSapMachine {
       const fault = this.shims.getFault();
       if (fault) throw fault;
       const message = error instanceof Error ? error.message : String(error);
+      const stderr = this.engine.diagnosticStderr();
       throw new Error(
-        `execute SAP guest function: ${message}; lastBlock=${describeGuestBlock(lastBlockAddress, lastBlockSize)}`,
+        `execute SAP guest function: ${message}; lastBlock=${describeGuestBlock(lastBlockAddress, lastBlockSize)}; entry32=${bytesToHex(entryBytes)}; unicornStderr=${formatStderr(stderr)}`,
       );
     } finally {
       try {
@@ -371,6 +374,19 @@ function describeGuestBlock(address: number | undefined, size: number): string {
   }
 
   return `0x${address.toString(16)}(size=${size})`;
+}
+
+function bytesToHex(input: Uint8Array): string {
+  return Array.from(input, (value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+function formatStderr(lines: string[]): string {
+  if (lines.length === 0) return "none";
+  return lines
+    .slice(-8)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(" | ");
 }
 
 function align(value: number, alignment: number): number {
