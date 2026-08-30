@@ -1,6 +1,6 @@
 import type { AppleSapAssetBundle } from "./cpio";
 import { inspectMachOExports } from "./machoInspect";
-import { BrowserMachODyldImage } from "./machoDyld";
+import { BrowserMachODyldImage } from "./machoDyld64";
 import { BrowserSapShimTable } from "./shims";
 import {
   BrowserUnicornEngine,
@@ -141,8 +141,6 @@ function createBaseEngine(module: UnicornX86Module): BrowserUnicornEngine {
     engine.memMap(SAP_HEAP_BASE, SAP_HEAP_SIZE);
     engine.memMap(SAP_STACK_BASE, SAP_STACK_SIZE);
 
-    // ipatool places HLT at the synthetic return address so a guest function
-    // cannot silently continue into unmapped memory after returning.
     engine.memWrite(SAP_RETURN_ADDRESS, new Uint8Array([0xf4]));
     return engine;
   } catch (error) {
