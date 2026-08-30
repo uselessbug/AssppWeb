@@ -3,6 +3,7 @@ import { extractAppleSapAssets } from "./assetExtractor";
 import { inspectAppleSapPackage } from "./assets";
 import { BrowserSapMachine } from "./machine";
 import { inspectMachOExports, type MachOExportInspection } from "./machoInspect";
+import { exchangeSapSetup, fetchSapCertificate } from "./protocol";
 import {
   SAP_COMMERCE_BASE,
   SAP_CORE_FP_BASE,
@@ -128,29 +129,83 @@ export function installExperimentalBrowserSapRuntime() {
   if (installed) return;
   installed = true;
 
-  registerBrowserSapSignerFactory(async (_config, hardwareId) => {
+  registerBrowserSapSignerFactory(async (config, hardwareId) => {
     const module = await loadUnicornX86Module();
     await runUnicornX64SmokeTest(module);
     await runUnicornHookReentrySmokeTest(module);
 
     const extraction = await extractAppleSapAssets();
     const machine = BrowserSapMachine.openLinked(module, extraction.bundle);
+    const hardware = new Uint8Array(hardwareId);
+    let contextValue = 0n;
+
     try {
-      const summary = machine.summary();
-      if (!summary) {
-        throw new Error("Browser SAP linked machine did not expose a link summary");
+      contextValue = machine.initialize(hardware);
+      const certificate = await fetchSapCertificate(config.certificateURL);
+      const first = machine.exchange(
+        config.version,
+        hardware,
+        contextValue,
+        certificate,
+      );
+      if (first.state !== 1) {
+        throw new Error(`SAP setup entered unexpected state ${first.state}`);
+      }
+      if (first.output.length === 0) {
+        throw new Error("SAP setup message is empty");
       }
 
-      const contextValue = machine.initialize(hardwareId);
-      throw new Error(
-        `Browser SAP guest initialization succeeded from ${extraction.source ?? "network"}: context=0x${contextValue.toString(16)}, shimImports=${summary.shimImports}; SAP setup exchange and action signing are the next required stage`,
+      const reply = await exchangeSapSetup(config.setupURL, first.output);
+      const second = machine.exchange(
+        config.version,
+        hardware,
+        contextValue,
+        reply,
       );
-    } finally {
+      if (second.state !== 0) {
+        throw new Error(`SAP setup completed in unexpected state ${second.state}`);
+      }
+
+      let closed = false;
+      return {
+        async sign(input: Uint8Array) {
+          if (closed) throw new Error("Browser SAP signer is closed");
+          const signature = machine.sign(contextValue, input);
+          if (signature.length === 0) {
+            throw new Error("Browser SAP signer returned an empty signature");
+          }
+          return signature;
+        },
+        async close() {
+          if (closed) return;
+          closed = true;
+          let teardownError: unknown;
+          try {
+            if (contextValue !== 0n) machine.teardown(contextValue);
+          } catch (error) {
+            teardownError = error;
+          } finally {
+            contextValue = 0n;
+            hardware.fill(0);
+            machine.close();
+          }
+          if (teardownError) throw teardownError;
+        },
+      };
+    } catch (error) {
+      try {
+        if (contextValue !== 0n) machine.teardown(contextValue);
+      } catch {
+        // Preserve the setup failure.
+      }
+      contextValue = 0n;
+      hardware.fill(0);
       try {
         machine.close();
       } catch {
-        // Preserve the original execution error after a fatal Emscripten abort.
+        // Preserve the setup failure after a fatal emulator error.
       }
+      throw error;
     }
   });
 
