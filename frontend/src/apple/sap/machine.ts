@@ -4,6 +4,7 @@ import { BrowserMachODyldImage } from "./machoDyld64";
 import { BrowserSapShimTable } from "./shims";
 import {
   BrowserUnicornEngine,
+  type BrowserUnicornCodeHook,
   SAP_COMMERCE_BASE,
   SAP_CORE_FP_BASE,
   SAP_HEAP_BASE,
@@ -57,13 +58,33 @@ export interface BrowserSapExchangeResult {
 export class BrowserSapMachine {
   private closed = false;
   private scratchCursor = 0;
+  private traceHook?: BrowserUnicornCodeHook;
+  private activeDeadline = 0;
+  private lastBlockAddress: number | undefined;
+  private lastBlockSize = 0;
+  private timeoutError: Error | undefined;
 
   private constructor(
     private readonly engine: BrowserUnicornEngine,
     private readonly shims?: BrowserSapShimTable,
     private readonly entry?: BrowserSapEntryPoints,
     private readonly linkSummary?: BrowserSapLinkSummary,
-  ) {}
+  ) {
+    this.traceHook = this.engine.addBlockHook((address, size) => {
+      this.lastBlockAddress = address;
+      this.lastBlockSize = size;
+      if (
+        this.activeDeadline !== 0 &&
+        !this.timeoutError &&
+        performance.now() >= this.activeDeadline
+      ) {
+        this.timeoutError = new Error(
+          `SAP guest execution exceeded ${SAP_EXECUTION_TIMEOUT_MS}ms browser limit`,
+        );
+        this.engine.stop();
+      }
+    });
+  }
 
   static open(module: UnicornX86Module): BrowserSapMachine {
     const engine = createBaseEngine(module);
@@ -185,6 +206,7 @@ export class BrowserSapMachine {
       const contextField = this.scratch(undefined, 8);
       const hardwareAddress = this.scratch(hardware, hardware.length);
       const status = this.invoke(
+        "initialize",
         entry.initialize,
         BigInt(contextField),
         BigInt(hardwareAddress),
@@ -229,6 +251,7 @@ export class BrowserSapMachine {
       const resultField = this.scratch(undefined, 4);
 
       const status = this.invoke(
+        "exchange",
         entry.exchange,
         BigInt(version),
         BigInt(hardwareAddress),
@@ -266,6 +289,7 @@ export class BrowserSapMachine {
       const outputField = this.scratch(undefined, 8);
       const lengthField = this.scratch(undefined, 8);
       const status = this.invoke(
+        "sign",
         entry.sign,
         contextValue,
         BigInt(inputAddress),
@@ -287,7 +311,7 @@ export class BrowserSapMachine {
   teardown(contextValue: bigint) {
     const entry = this.requireEntry();
     this.requireShims();
-    const status = this.invoke(entry.teardown, contextValue);
+    const status = this.invoke("teardown", entry.teardown, contextValue);
     const signedStatus = Number(BigInt.asIntN(32, status));
     if (signedStatus !== 0) {
       throw new Error(`SAP teardown returned ${signedStatus}`);
@@ -298,15 +322,20 @@ export class BrowserSapMachine {
     if (this.closed) return;
     this.closed = true;
     try {
-      this.shims?.close();
+      this.traceHook?.close();
+      this.traceHook = undefined;
     } finally {
-      this.engine.close();
+      try {
+        this.shims?.close();
+      } finally {
+        this.engine.close();
+      }
     }
   }
 
   private dispose(output: bigint) {
     const entry = this.requireEntry();
-    const status = this.invoke(entry.dispose, output);
+    const status = this.invoke("dispose", entry.dispose, output);
     const signedStatus = Number(BigInt.asIntN(32, status));
     if (signedStatus !== 0) {
       throw new Error(`SAP storage disposal returned ${signedStatus}`);
@@ -357,7 +386,11 @@ export class BrowserSapMachine {
     return output;
   }
 
-  private invoke(functionAddress: number, ...arguments_: bigint[]): bigint {
+  private invoke(
+    phase: string,
+    functionAddress: number,
+    ...arguments_: bigint[]
+  ): bigint {
     if (this.closed) throw new Error("SAP guest machine is closed");
     if (!this.shims) throw new Error("SAP guest shim runtime is unavailable");
     if (functionAddress === 0) {
@@ -385,54 +418,48 @@ export class BrowserSapMachine {
     this.shims.resetFault();
     this.engine.clearDiagnosticStderr();
     const entryBytes = this.engine.memRead(functionAddress, 32);
-
-    let lastBlockAddress: number | undefined;
-    let lastBlockSize = 0;
-    let timeoutError: Error | undefined;
-    const deadline = performance.now() + SAP_EXECUTION_TIMEOUT_MS;
-    const traceHook = this.engine.addBlockHook((address, size) => {
-      lastBlockAddress = address;
-      lastBlockSize = size;
-      if (!timeoutError && performance.now() >= deadline) {
-        timeoutError = new Error(
-          `SAP guest execution exceeded ${SAP_EXECUTION_TIMEOUT_MS}ms browser limit`,
-        );
-        this.engine.stop();
-      }
-    });
+    this.lastBlockAddress = undefined;
+    this.lastBlockSize = 0;
+    this.timeoutError = undefined;
+    this.activeDeadline = performance.now() + SAP_EXECUTION_TIMEOUT_MS;
 
     try {
       this.engine.startBrowserSafe(functionAddress, SAP_RETURN_ADDRESS);
     } catch (error) {
       const fault = this.shims.getFault();
       if (fault) throw fault;
-      if (timeoutError) throw timeoutError;
+      if (this.timeoutError) throw this.timeoutError;
       const message = error instanceof Error ? error.message : String(error);
       const stderr = this.engine.diagnosticStderr();
       throw new Error(
-        `execute SAP guest function: ${message}; lastBlock=${describeGuestBlock(lastBlockAddress, lastBlockSize)}; entry32=${bytesToHex(entryBytes)}; unicornStderr=${formatStderr(stderr)}`,
+        `execute SAP guest function phase=${phase}: ${message}; lastBlock=${describeGuestBlock(this.lastBlockAddress, this.lastBlockSize)}; lastBlockBytes=${this.readDiagnosticBlockBytes()}; entry32=${bytesToHex(entryBytes)}; unicornStderr=${formatStderr(stderr)}`,
       );
     } finally {
-      try {
-        traceHook.close();
-      } catch {
-        // A fatal Emscripten abort can invalidate hook cleanup. Preserve the
-        // execution error and let machine.close perform best-effort cleanup.
-      }
+      this.activeDeadline = 0;
     }
 
-    if (timeoutError) throw timeoutError;
+    if (this.timeoutError) throw this.timeoutError;
     const fault = this.shims.getFault();
     if (fault) throw fault;
 
     const instruction = this.engine.regRead("rip");
     if (instruction !== BigInt(SAP_RETURN_ADDRESS)) {
       throw new Error(
-        `SAP guest stopped unexpectedly at 0x${instruction.toString(16)}; lastBlock=${describeGuestBlock(lastBlockAddress, lastBlockSize)}`,
+        `SAP guest phase=${phase} stopped unexpectedly at 0x${instruction.toString(16)}; lastBlock=${describeGuestBlock(this.lastBlockAddress, this.lastBlockSize)}; lastBlockBytes=${this.readDiagnosticBlockBytes()}`,
       );
     }
 
     return this.engine.regRead("rax");
+  }
+
+  private readDiagnosticBlockBytes(): string {
+    if (this.lastBlockAddress === undefined) return "unavailable";
+    const size = Math.min(Math.max(this.lastBlockSize, 1), 64);
+    try {
+      return bytesToHex(this.engine.memRead(this.lastBlockAddress, size));
+    } catch {
+      return "unavailable";
+    }
   }
 
   private beginCall() {
