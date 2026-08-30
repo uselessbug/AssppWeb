@@ -2,13 +2,17 @@ import type { Account, Cookie } from "../types";
 import { appleRequest } from "./request";
 import { buildPlist, parsePlist } from "./plist";
 import { extractAndMergeCookies } from "./cookies";
-import { fetchBag, defaultAuthURL } from "./bag";
+import { fetchBag } from "./bag";
 import {
   createAppleActionSignature,
   createBrowserSapSigner,
   normalizeSapDeviceId,
 } from "./sap";
 import i18n from "../i18n";
+
+const FAILURE_TYPE_INVALID_CREDENTIALS = "-5000";
+const CUSTOMER_MESSAGE_BAD_LOGIN = "MZFinance.BadLogin.Configurator_message";
+const CUSTOMER_MESSAGE_ACCOUNT_DISABLED = "Your account is disabled.";
 
 export class AuthenticationError extends Error {
   constructor(
@@ -29,161 +33,140 @@ export async function authenticate(
 ): Promise<Account> {
   let cookies: Cookie[] = existingCookies ? [...existingCookies] : [];
   let storeFront = "";
-  let lastError: Error | null = null;
   const normalizedDeviceId = normalizeSapDeviceId(deviceId);
-
-  const defaultAuthEndpoint = new URL(defaultAuthURL);
-  defaultAuthEndpoint.searchParams.set("guid", normalizedDeviceId);
-  let requestHost = defaultAuthEndpoint.hostname;
-  let requestPath = `${defaultAuthEndpoint.pathname}${defaultAuthEndpoint.search}`;
+  const cleanCode = code?.replace(/\s/g, "") ?? "";
 
   const bag = await fetchBag(normalizedDeviceId);
-  const authEndpoint = new URL(bag.authURL);
-  authEndpoint.searchParams.set("guid", normalizedDeviceId);
-  requestHost = authEndpoint.hostname;
-  requestPath = `${authEndpoint.pathname}${authEndpoint.search}`;
+  if (!bag.sapConfig) {
+    throw new AuthenticationError(
+      "Apple bag did not provide the SAP configuration required for browser-side authentication",
+    );
+  }
 
-  const signer = bag.sapConfig
-    ? await createBrowserSapSigner(bag.sapConfig, normalizedDeviceId)
-    : undefined;
+  const initialEndpoint = new URL(bag.authURL);
+  initialEndpoint.searchParams.set("guid", normalizedDeviceId);
+  const signer = await createBrowserSapSigner(
+    bag.sapConfig,
+    normalizedDeviceId,
+  );
 
-  let currentAttempt = 0;
-  let redirectAttempt = 0;
+  let redirectURL = "";
 
   try {
-    while (currentAttempt < 2 && redirectAttempt <= 3) {
-      currentAttempt++;
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      const endpoint = redirectURL ? new URL(redirectURL) : new URL(initialEndpoint);
+      const requestAttempt = redirectURL ? 1 : attempt;
 
-      try {
-        const body: Record<string, string> = {
-          appleId: email,
-          attempt: code ? "2" : "4",
-          guid: normalizedDeviceId,
-          password: code ? `${password}${code}` : password,
-          rmp: "0",
-          why: "signIn",
-        };
+      const body: Record<string, string> = {
+        appleId: email,
+        attempt: String(requestAttempt),
+        guid: normalizedDeviceId,
+        password: `${password}${cleanCode}`,
+        rmp: "0",
+        why: "signIn",
+      };
+      const plistBody = buildPlist(body);
+      const signature = await createAppleActionSignature(signer, plistBody);
 
-        const plistBody = buildPlist(body);
+      const response = await appleRequest({
+        method: "POST",
+        host: endpoint.hostname,
+        path: `${endpoint.pathname}${endpoint.search}`,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-Apple-ActionSignature": signature,
+        },
+        body: plistBody,
+        cookies,
+      });
 
-        const headers: Record<string, string> = {
-          "Content-Type": signer
-            ? "application/x-www-form-urlencoded"
-            : "application/x-apple-plist",
-        };
+      cookies = extractAndMergeCookies(response.rawHeaders, cookies);
 
-        if (signer) {
-          headers["X-Apple-ActionSignature"] = await createAppleActionSignature(
-            signer,
-            plistBody,
-          );
+      const storeHeader = response.headers["x-set-apple-store-front"];
+      if (storeHeader) storeFront = storeHeader;
+      const pod = response.headers["pod"] || undefined;
+
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers["location"];
+        if (!location) {
+          throw new AuthenticationError(i18n.t("errors.auth.redirectLocation"));
         }
-
-        const response = await appleRequest({
-          method: "POST",
-          host: requestHost,
-          path: requestPath,
-          headers,
-          body: plistBody,
-          cookies,
-        });
-
-        cookies = extractAndMergeCookies(response.rawHeaders, cookies);
-
-        const storeHeader = response.headers["x-set-apple-store-front"];
-        if (storeHeader) {
-          const parts = storeHeader.split("-");
-          if (parts[0]) {
-            storeFront = parts[0];
-          }
-        }
-
-        const podHeader = response.headers["pod"];
-        const pod = podHeader || undefined;
-
-        if ([301, 302, 303, 307, 308].includes(response.status)) {
-          const location = response.headers["location"];
-          if (!location) {
-            throw new Error(i18n.t("errors.auth.redirectLocation"));
-          }
-          const url = new URL(location);
-          requestHost = url.hostname;
-          requestPath = url.pathname + url.search;
-          currentAttempt--;
-          redirectAttempt++;
-          continue;
-        }
-
-        if (!response.body.trim()) {
-          throw new Error(
-            i18n.t("errors.auth.emptyBody", { status: response.status }),
-          );
-        }
-
-        const dict = parsePlist(response.body) as Record<string, any>;
-
-        if (
-          dict.failureType === "" &&
-          !code &&
-          dict.customerMessage === "MZFinance.BadLogin.Configurator_message"
-        ) {
-          throw new AuthenticationError(
-            i18n.t("errors.auth.requiresVerification"),
-            true,
-          );
-        }
-
-        const failureMessage =
-          (dict.dialog as Record<string, any>)?.explanation ??
-          dict.customerMessage;
-
-        const accountInfo = dict.accountInfo as Record<string, any>;
-        if (!accountInfo) {
-          throw new Error(
-            failureMessage ?? i18n.t("errors.auth.missingAccountInfo"),
-          );
-        }
-
-        const address = accountInfo.address as Record<string, any>;
-        if (!address) {
-          throw new Error(
-            failureMessage ?? i18n.t("errors.auth.missingAddress"),
-          );
-        }
-
-        const account: Account = {
-          email,
-          password,
-          appleId: (accountInfo.appleId as string) ?? "",
-          store: storeFront,
-          firstName: (address.firstName as string) ?? "",
-          lastName: (address.lastName as string) ?? "",
-          passwordToken: (dict.passwordToken as string) ?? "",
-          directoryServicesIdentifier: String(dict.dsPersonId ?? ""),
-          cookies,
-          deviceIdentifier: normalizedDeviceId,
-          pod,
-        };
-
-        return account;
-      } catch (e) {
-        if (e instanceof AuthenticationError) throw e;
-        lastError = e instanceof Error ? e : new Error(String(e));
+        redirectURL = location;
+        continue;
       }
-    }
+      redirectURL = "";
 
-    throw lastError ?? new Error(i18n.t("errors.auth.unknownReason"));
-  } finally {
-    if (signer) {
-      try {
-        await signer.close();
-      } catch (error) {
-        console.warn(
-          `[SAP] Failed to close browser signer: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+      if (!response.body.trim()) {
+        throw new AuthenticationError(
+          i18n.t("errors.auth.emptyBody", { status: response.status }),
         );
       }
+
+      const dict = parsePlist(response.body) as Record<string, any>;
+      const failureType = String(dict.failureType ?? "");
+      const customerMessage = String(dict.customerMessage ?? "");
+
+      if (attempt === 1 && failureType === FAILURE_TYPE_INVALID_CREDENTIALS) {
+        continue;
+      }
+
+      if (
+        failureType === "" &&
+        cleanCode === "" &&
+        customerMessage === CUSTOMER_MESSAGE_BAD_LOGIN
+      ) {
+        throw new AuthenticationError(
+          i18n.t("errors.auth.requiresVerification"),
+          true,
+        );
+      }
+
+      if (failureType === "" && customerMessage === CUSTOMER_MESSAGE_ACCOUNT_DISABLED) {
+        throw new AuthenticationError(customerMessage);
+      }
+
+      if (failureType !== "") {
+        throw new AuthenticationError(
+          customerMessage || i18n.t("errors.auth.unknownReason"),
+        );
+      }
+
+      const accountInfo = dict.accountInfo as Record<string, any> | undefined;
+      const address = accountInfo?.address as Record<string, any> | undefined;
+      const passwordToken = String(dict.passwordToken ?? "");
+      const directoryServicesIdentifier = String(dict.dsPersonId ?? "");
+
+      if (!accountInfo || !passwordToken || !directoryServicesIdentifier) {
+        throw new AuthenticationError(i18n.t("errors.auth.missingAccountInfo"));
+      }
+
+      const account: Account = {
+        email,
+        password,
+        appleId: String(accountInfo.appleId ?? email),
+        store: storeFront,
+        firstName: String(address?.firstName ?? ""),
+        lastName: String(address?.lastName ?? ""),
+        passwordToken,
+        directoryServicesIdentifier,
+        cookies,
+        deviceIdentifier: normalizedDeviceId,
+        pod,
+      };
+
+      return account;
+    }
+
+    throw new AuthenticationError("Apple authentication exceeded the retry limit");
+  } finally {
+    try {
+      await signer.close();
+    } catch (error) {
+      console.warn(
+        `[SAP] Failed to close browser signer: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 }
