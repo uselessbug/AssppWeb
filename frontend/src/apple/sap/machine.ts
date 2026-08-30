@@ -25,8 +25,9 @@ const SAP_SHIM_SIZE = 0x00100000;
 const SAP_EXECUTION_TIMEOUT_MS = 10_000;
 const SAP_MAX_OUTPUT_SIZE = 16 << 20;
 const UINT32_MAX = 0xffffffff;
-const MAX_SOFTWARE_DISPATCH_RESUMES = 1024;
+const MAX_SOFTWARE_DISPATCH_RESUMES = 100_000;
 const COMMERCE_KIT_SIGN_DISPATCH_ADDRESS = SAP_KIT_BASE + 0x126777;
+const COMMERCE_KIT_SIGN_DISPATCH_JUMP = COMMERCE_KIT_SIGN_DISPATCH_ADDRESS + 14;
 const COMMERCE_KIT_SIGN_TABLE_BASE = SAP_KIT_BASE + 0x167804;
 const COMMERCE_KIT_SIGN_DISPATCH_BYTES = new Uint8Array([
   0x48, 0x8d, 0x0d, 0x86, 0x10, 0x04, 0x00, 0x48,
@@ -78,8 +79,8 @@ export class BrowserSapMachine {
   private lastBlockAddress: number | undefined;
   private lastBlockSize = 0;
   private timeoutError: Error | undefined;
-  private softwareDispatchResume: SoftwareDispatchResume | undefined;
-  private softwareDispatchError: Error | undefined;
+  private softwareDispatchPending = false;
+  private softwareDispatchBypass = false;
   private softwareDispatchTrace = "none";
 
   private constructor(
@@ -94,22 +95,12 @@ export class BrowserSapMachine {
 
       if (
         this.activePhase === "sign" &&
+        !this.softwareDispatchBypass &&
         address === COMMERCE_KIT_SIGN_DISPATCH_ADDRESS
       ) {
-        try {
-          this.softwareDispatchResume = this.decodeSignDispatch();
-          this.softwareDispatchTrace = describeSoftwareDispatch(
-            this.softwareDispatchResume,
-          );
-          this.engine.stop();
-          return;
-        } catch (error) {
-          this.softwareDispatchError =
-            error instanceof Error ? error : new Error(String(error));
-          this.softwareDispatchTrace = `error=${this.softwareDispatchError.message}`;
-          this.engine.stop();
-          return;
-        }
+        this.softwareDispatchPending = true;
+        this.engine.stop();
+        return;
       }
 
       if (
@@ -460,8 +451,8 @@ export class BrowserSapMachine {
     this.lastBlockAddress = undefined;
     this.lastBlockSize = 0;
     this.timeoutError = undefined;
-    this.softwareDispatchResume = undefined;
-    this.softwareDispatchError = undefined;
+    this.softwareDispatchPending = false;
+    this.softwareDispatchBypass = false;
     this.softwareDispatchTrace = "none";
     this.activePhase = phase;
     this.activeDeadline = performance.now() + SAP_EXECUTION_TIMEOUT_MS;
@@ -471,21 +462,18 @@ export class BrowserSapMachine {
 
     try {
       for (;;) {
-        this.softwareDispatchResume = undefined;
+        this.softwareDispatchPending = false;
         this.engine.startBrowserSafe(beginAddress, SAP_RETURN_ADDRESS);
 
-        if (this.softwareDispatchError) throw this.softwareDispatchError;
-        if (!this.softwareDispatchResume) break;
+        if (!this.softwareDispatchPending) break;
 
         resumeCount++;
         if (resumeCount > MAX_SOFTWARE_DISPATCH_RESUMES) {
           throw new Error("SAP sign software dispatch exceeded safety limit");
         }
 
-        const resume = this.softwareDispatchResume;
-        this.engine.regWrite("rcx", BigInt(COMMERCE_KIT_SIGN_TABLE_BASE));
-        this.engine.regWrite("rax", BigInt(resume.target));
-        this.engine.regWrite("rip", BigInt(resume.target));
+        const resume = this.executeSignDispatchPrefix();
+        this.softwareDispatchTrace = describeSoftwareDispatch(resume);
         beginAddress = resume.target;
       }
     } catch (error) {
@@ -500,6 +488,7 @@ export class BrowserSapMachine {
     } finally {
       this.activeDeadline = 0;
       this.activePhase = "";
+      this.softwareDispatchBypass = false;
     }
 
     if (this.timeoutError) throw this.timeoutError;
@@ -516,7 +505,7 @@ export class BrowserSapMachine {
     return this.engine.regRead("rax");
   }
 
-  private decodeSignDispatch(): SoftwareDispatchResume {
+  private executeSignDispatchPrefix(): SoftwareDispatchResume {
     const actual = this.engine.memRead(
       COMMERCE_KIT_SIGN_DISPATCH_ADDRESS,
       COMMERCE_KIT_SIGN_DISPATCH_BYTES.length,
@@ -545,14 +534,46 @@ export class BrowserSapMachine {
       );
     }
     const tableEntryAddress = Number(tableEntryAddressBig);
-
     const entry = this.engine.memRead(tableEntryAddress, 4);
     const tableOffset = new DataView(
       entry.buffer,
       entry.byteOffset,
       entry.byteLength,
     ).getInt32(0, true);
-    const targetBig = BigInt(COMMERCE_KIT_SIGN_TABLE_BASE) + BigInt(tableOffset);
+    const expectedTargetBig =
+      BigInt(COMMERCE_KIT_SIGN_TABLE_BASE) + BigInt(tableOffset);
+
+    this.softwareDispatchBypass = true;
+    try {
+      this.engine.startBrowserSafe(
+        COMMERCE_KIT_SIGN_DISPATCH_ADDRESS,
+        COMMERCE_KIT_SIGN_DISPATCH_JUMP,
+      );
+    } finally {
+      this.softwareDispatchBypass = false;
+    }
+
+    if (this.timeoutError) throw this.timeoutError;
+    const instruction = this.engine.regRead("rip");
+    if (instruction !== BigInt(COMMERCE_KIT_SIGN_DISPATCH_JUMP)) {
+      throw new Error(
+        `CommerceKit sign dispatch prefix stopped at 0x${instruction.toString(16)}, expected 0x${COMMERCE_KIT_SIGN_DISPATCH_JUMP.toString(16)}`,
+      );
+    }
+
+    const tableBase = this.engine.regRead("rcx");
+    if (tableBase !== BigInt(COMMERCE_KIT_SIGN_TABLE_BASE)) {
+      throw new Error(
+        `CommerceKit sign dispatch produced RCX=0x${tableBase.toString(16)}, expected table base 0x${COMMERCE_KIT_SIGN_TABLE_BASE.toString(16)}`,
+      );
+    }
+
+    const targetBig = this.engine.regRead("rax");
+    if (targetBig !== expectedTargetBig) {
+      throw new Error(
+        `CommerceKit sign dispatch produced target 0x${targetBig.toString(16)}, expected 0x${expectedTargetBig.toString(16)}`,
+      );
+    }
     if (
       targetBig < BigInt(SAP_KIT_BASE) ||
       targetBig >= BigInt(SAP_SHIM_BASE) ||
@@ -562,13 +583,12 @@ export class BrowserSapMachine {
         `CommerceKit sign jump-table target 0x${targetBig.toString(16)} is outside CommerceKit`,
       );
     }
-    const target = Number(targetBig);
 
     return {
       index,
       tableEntryAddress,
       tableOffset,
-      target,
+      target: Number(targetBig),
     };
   }
 
