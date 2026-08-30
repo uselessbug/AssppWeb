@@ -2,14 +2,17 @@ import { Server as HttpServer } from "http";
 import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 import { accessPasswordHash, verifyAccessToken } from "../config.js";
 
-// Allow only Apple hosts required by bag/auth/purchase/version/SAP asset flows.
-// Wisp remains a blind TCP relay: TLS for these hosts terminates in the browser.
+// Allow only Apple hosts required by bag/auth/purchase/version/SAP asset/setup
+// flows. Wisp remains a blind TCP relay: TLS for these hosts terminates in the
+// browser.
 wisp.options.hostname_whitelist = [
   /^auth\.itunes\.apple\.com$/,
   /^buy\.itunes\.apple\.com$/,
   /^init\.itunes\.apple\.com$/,
   /^p\d+-buy\.itunes\.apple\.com$/,
   /^swcdn\.apple\.com$/,
+  /^s\.mzstatic\.com$/,
+  /^fpinit\.itunes\.apple\.com$/,
 ];
 wisp.options.port_whitelist = [443];
 wisp.options.allow_direct_ip = false;
