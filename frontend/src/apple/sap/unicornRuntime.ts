@@ -105,7 +105,7 @@ export function installExperimentalBrowserSapRuntime() {
   if (installed) return;
   installed = true;
 
-  registerBrowserSapSignerFactory(async () => {
+  registerBrowserSapSignerFactory(async (_config, hardwareId) => {
     const module = await loadUnicornX86Module();
     await runUnicornX64SmokeTest(module);
 
@@ -117,8 +117,9 @@ export function installExperimentalBrowserSapRuntime() {
         throw new Error("Browser SAP linked machine did not expose a link summary");
       }
 
+      const contextValue = machine.initialize(hardwareId);
       throw new Error(
-        `Browser SAP dyld relocation and image mapping succeeded from ${extraction.source ?? "network"}: CoreFP(rebase=${summary.coreFP.rebases},bind=${summary.coreFP.binds}), CommerceCore(rebase=${summary.commerceCore.rebases},bind=${summary.commerceCore.binds}), CommerceKit(rebase=${summary.commerceKit.rebases},bind=${summary.commerceKit.binds}), shimImports=${summary.shimImports}; executable shim services and guest SAP initialization are the next required stage`,
+        `Browser SAP guest initialization succeeded from ${extraction.source ?? "network"}: context=0x${contextValue.toString(16)}, shimImports=${summary.shimImports}; SAP setup exchange and action signing are the next required stage`,
       );
     } finally {
       machine.close();
