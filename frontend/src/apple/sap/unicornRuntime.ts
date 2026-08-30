@@ -2,7 +2,7 @@ import { registerBrowserSapSignerFactory } from "../sap";
 import { extractAppleSapAssets } from "./assetExtractor";
 import { inspectAppleSapPackage } from "./assets";
 import { BrowserSapMachine } from "./machine";
-import { BrowserMachOImage } from "./macho";
+import { inspectMachOExports, type MachOExportInspection } from "./machoInspect";
 import {
   SAP_COMMERCE_BASE,
   SAP_CORE_FP_BASE,
@@ -22,14 +22,6 @@ const CORE_FP_EXPORTS = [
   "_dku592fbFAj",
   "_fdjkDSAFjklaf2s",
   "_lxpgvVMLd0S7uRl",
-] as const;
-
-const COMMERCE_KIT_EXPORTS = [
-  "_cp2g1b9ro",
-  "_Mib5yocT",
-  "_Fc3vhtJDvr",
-  "_IPaI1oem5iL",
-  "_jEHf8Xzsv8K",
 ] as const;
 
 export interface UnicornHook {
@@ -96,9 +88,9 @@ export interface UnicornSmokeResult {
 }
 
 export interface AppleSapMachOInspection {
-  coreFP: ReturnType<BrowserMachOImage["summary"]>;
-  commerceCore: ReturnType<BrowserMachOImage["summary"]>;
-  commerceKit: ReturnType<BrowserMachOImage["summary"]>;
+  coreFP: Omit<MachOExportInspection, "symbol">;
+  commerceCore: Omit<MachOExportInspection, "symbol">;
+  commerceKit: Omit<MachOExportInspection, "symbol">;
   initialize: number;
   exchange: number;
   sign: number;
@@ -123,7 +115,7 @@ export function installExperimentalBrowserSapRuntime() {
     const extraction = await extractAppleSapAssets();
     const macho = inspectAppleSapMachO(extraction.bundle);
     throw new Error(
-      `Browser SAP Mach-O images parsed and required exports resolved: CoreFP(seg=${macho.coreFP.segments},rebase=${macho.coreFP.rebases},bind=${macho.coreFP.binds}), CommerceCore(seg=${macho.commerceCore.segments},rebase=${macho.commerceCore.rebases},bind=${macho.commerceCore.binds}), CommerceKit(seg=${macho.commerceKit.segments},rebase=${macho.commerceKit.rebases},bind=${macho.commerceKit.binds}), sign=0x${macho.sign.toString(16)}; relocation, shims, and guest execution are the next required stage`,
+      `Browser SAP Mach-O headers and required exports resolved from ${extraction.source ?? "network"}: CoreFP(seg=${macho.coreFP.segments},exports=${macho.coreFP.exports}), CommerceCore(seg=${macho.commerceCore.segments},exports=${macho.commerceCore.exports}), CommerceKit(seg=${macho.commerceKit.segments},exports=${macho.commerceKit.exports}), sign=0x${macho.sign.toString(16)}; dyld relocation and shims are the next required stage`,
     );
   });
 
@@ -142,25 +134,29 @@ export function installExperimentalBrowserSapRuntime() {
 export function inspectAppleSapMachO(
   bundle: Awaited<ReturnType<typeof extractAppleSapAssets>>["bundle"],
 ): AppleSapMachOInspection {
-  const coreFP = BrowserMachOImage.open("CoreFP", bundle.CoreFP);
-  const commerceCore = BrowserMachOImage.open("CommerceCore", bundle.CommerceCore);
-  const commerceKit = BrowserMachOImage.open("CommerceKit", bundle.CommerceKit);
+  const coreFP = inspectMachOExports("CoreFP", bundle.CoreFP);
+  const commerceCore = inspectMachOExports("CommerceCore", bundle.CommerceCore);
+  const commerceKit = inspectMachOExports("CommerceKit", bundle.CommerceKit);
 
   for (const name of CORE_FP_EXPORTS) {
-    coreFP.export(name, SAP_CORE_FP_BASE);
+    coreFP.symbol(name, SAP_CORE_FP_BASE);
   }
-  commerceCore.export("_get_mac_address", SAP_COMMERCE_BASE);
+  commerceCore.symbol("_get_mac_address", SAP_COMMERCE_BASE);
 
-  const initialize = commerceKit.export("_cp2g1b9ro", SAP_KIT_BASE);
-  const exchange = commerceKit.export("_Mib5yocT", SAP_KIT_BASE);
-  const sign = commerceKit.export("_Fc3vhtJDvr", SAP_KIT_BASE);
-  const teardown = commerceKit.export("_IPaI1oem5iL", SAP_KIT_BASE);
-  const dispose = commerceKit.export("_jEHf8Xzsv8K", SAP_KIT_BASE);
+  const initialize = commerceKit.symbol("_cp2g1b9ro", SAP_KIT_BASE);
+  const exchange = commerceKit.symbol("_Mib5yocT", SAP_KIT_BASE);
+  const sign = commerceKit.symbol("_Fc3vhtJDvr", SAP_KIT_BASE);
+  const teardown = commerceKit.symbol("_IPaI1oem5iL", SAP_KIT_BASE);
+  const dispose = commerceKit.symbol("_jEHf8Xzsv8K", SAP_KIT_BASE);
+
+  const { symbol: _coreSymbol, ...coreFPSummary } = coreFP;
+  const { symbol: _commerceCoreSymbol, ...commerceCoreSummary } = commerceCore;
+  const { symbol: _commerceKitSymbol, ...commerceKitSummary } = commerceKit;
 
   return {
-    coreFP: coreFP.summary(),
-    commerceCore: commerceCore.summary(),
-    commerceKit: commerceKit.summary(),
+    coreFP: coreFPSummary,
+    commerceCore: commerceCoreSummary,
+    commerceKit: commerceKitSummary,
     initialize,
     exchange,
     sign,
@@ -191,7 +187,6 @@ export async function loadUnicornX86Module(): Promise<UnicornX86Module> {
 export async function runUnicornX64SmokeTest(
   module: UnicornX86Module,
 ): Promise<UnicornSmokeResult> {
-  // mov rax, 0x1122334455667788; nop
   const code = new Uint8Array([
     0x48,
     0xb8,
@@ -211,18 +206,11 @@ export async function runUnicornX64SmokeTest(
   try {
     engine.mem_map(SMOKE_ADDRESS, 0x1000, module.PROT_ALL);
     engine.mem_write(SMOKE_ADDRESS, code);
-    engine.emu_start(
-      SMOKE_ADDRESS,
-      SMOKE_ADDRESS + code.length,
-      0,
-      0,
-    );
+    engine.emu_start(SMOKE_ADDRESS, SMOKE_ADDRESS + code.length, 0, 0);
 
     const rax = engine.reg_read_i64(module.X86_REG_RAX);
     if (rax !== SMOKE_EXPECTED_RAX) {
-      throw new Error(
-        `Unicorn x86_64 smoke test returned RAX=0x${rax.toString(16)}`,
-      );
+      throw new Error(`Unicorn x86_64 smoke test returned RAX=0x${rax.toString(16)}`);
     }
 
     engine.mem_map(SAP_HIGH_ADDRESS, 0x1000, module.PROT_ALL);
