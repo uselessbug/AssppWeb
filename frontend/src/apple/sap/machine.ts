@@ -145,8 +145,16 @@ export class BrowserSapMachine {
         shimNames: shims.names(),
       });
     } catch (error) {
-      shims?.close();
-      engine.close();
+      try {
+        shims?.close();
+      } catch {
+        // Preserve the original linking failure.
+      }
+      try {
+        engine.close();
+      } catch {
+        // Preserve the original linking failure.
+      }
       throw error;
     }
   }
@@ -198,8 +206,11 @@ export class BrowserSapMachine {
   close() {
     if (this.closed) return;
     this.closed = true;
-    this.shims?.close();
-    this.engine.close();
+    try {
+      this.shims?.close();
+    } finally {
+      this.engine.close();
+    }
   }
 
   private invoke(functionAddress: number, ...arguments_: bigint[]): bigint {
@@ -229,13 +240,29 @@ export class BrowserSapMachine {
     this.engine.regWrite("rsp", stackPointer);
     this.shims.resetFault();
 
+    let lastBlockAddress: number | undefined;
+    let lastBlockSize = 0;
+    const traceHook = this.engine.addBlockHook((address, size) => {
+      lastBlockAddress = address;
+      lastBlockSize = size;
+    });
+
     try {
       this.engine.startBounded(functionAddress, SAP_RETURN_ADDRESS);
     } catch (error) {
       const fault = this.shims.getFault();
       if (fault) throw fault;
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`execute SAP guest function: ${message}`);
+      throw new Error(
+        `execute SAP guest function: ${message}; lastBlock=${describeGuestBlock(lastBlockAddress, lastBlockSize)}`,
+      );
+    } finally {
+      try {
+        traceHook.close();
+      } catch {
+        // A fatal Emscripten abort can invalidate hook cleanup. Preserve the
+        // execution error and let machine.close perform best-effort cleanup.
+      }
     }
 
     const fault = this.shims.getFault();
@@ -244,7 +271,7 @@ export class BrowserSapMachine {
     const instruction = this.engine.regRead("rip");
     if (instruction !== BigInt(SAP_RETURN_ADDRESS)) {
       throw new Error(
-        `SAP guest stopped unexpectedly at 0x${instruction.toString(16)}`,
+        `SAP guest stopped unexpectedly at 0x${instruction.toString(16)}; lastBlock=${describeGuestBlock(lastBlockAddress, lastBlockSize)}`,
       );
     }
 
@@ -325,6 +352,25 @@ function createBaseEngine(module: UnicornX86Module): BrowserUnicornEngine {
     engine.close();
     throw error;
   }
+}
+
+function describeGuestBlock(address: number | undefined, size: number): string {
+  if (address === undefined) return "unavailable";
+
+  const regions = [
+    ["CoreFP", SAP_CORE_FP_BASE, SAP_COMMERCE_BASE],
+    ["CommerceCore", SAP_COMMERCE_BASE, SAP_KIT_BASE],
+    ["CommerceKit", SAP_KIT_BASE, SAP_SHIM_BASE],
+    ["shim", SAP_SHIM_BASE, SAP_SCRATCH_BASE],
+  ] as const;
+
+  for (const [name, start, end] of regions) {
+    if (address >= start && address < end) {
+      return `${name}+0x${(address - start).toString(16)}(addr=0x${address.toString(16)},size=${size})`;
+    }
+  }
+
+  return `0x${address.toString(16)}(size=${size})`;
 }
 
 function align(value: number, alignment: number): number {
