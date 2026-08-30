@@ -4,6 +4,7 @@ const MAX_HUFFMAN_GROUPS = 6;
 const MAX_ALPHA_SIZE = 258;
 const GROUP_SIZE = 50;
 const MAX_CODE_LENGTH = 20;
+const OUTPUT_CHUNK_SIZE = 64 << 10;
 
 export class Bzip2NeedMoreData extends Error {
   constructor() {
@@ -13,10 +14,10 @@ export class Bzip2NeedMoreData extends Error {
 }
 
 export interface Bzip2BlockResult {
-  output: Uint8Array;
   nextBit: number;
   endOfStream: boolean;
   storedCrc: number;
+  outputBytes: number;
 }
 
 interface HuffmanTable {
@@ -73,16 +74,18 @@ class BitReader {
 export function decodeBzip2Block(
   input: Uint8Array,
   startBit: number,
+  emit: (chunk: Uint8Array) => void,
   blockSize = 900_000,
 ): Bzip2BlockResult {
   const bits = new BitReader(input, startBit);
   const magic = bits.readUint48();
   if (magic === FINAL_MAGIC) {
+    const storedCrc = bits.readBits(32);
     return {
-      output: new Uint8Array(),
       nextBit: bits.position,
       endOfStream: true,
-      storedCrc: bits.readBits(32),
+      storedCrc,
+      outputBytes: 0,
     };
   }
   if (magic !== BLOCK_MAGIC) {
@@ -192,11 +195,11 @@ export function decodeBzip2Block(
       let repeat = 0;
       let power = 1;
       do {
-        repeat += power << value;
-        if (power > blockSize) {
-          throw new Error("bzip2 run length overflows block size");
+        repeat += power * (value + 1);
+        power *= 2;
+        if (repeat > 2 * 1024 * 1024) {
+          throw new Error("bzip2 repeat count is too large");
         }
-        power <<= 1;
         value = nextSymbol();
       } while (value === 0 || value === 1);
 
@@ -246,35 +249,54 @@ export function decodeBzip2Block(
   }
 
   let tPos = preRle[origPtr] >>> 8;
-  const output: number[] = [];
   let lastByte = -1;
-  let repeats = 0;
+  let byteRepeats = 0;
+  let emitted = 0;
+  let output = new Uint8Array(OUTPUT_CHUNK_SIZE);
+  let outputOffset = 0;
+
+  const emitByte = (byte: number) => {
+    output[outputOffset++] = byte;
+    emitted++;
+    if (outputOffset === output.length) {
+      emit(output);
+      output = new Uint8Array(OUTPUT_CHUNK_SIZE);
+      outputOffset = 0;
+    }
+  };
+
   for (let index = 0; index < outputLength; index++) {
     const packed = preRle[tPos];
     const byte = packed & 0xff;
     tPos = packed >>> 8;
 
-    if (repeats === 4) {
-      for (let count = 0; count < byte; count++) output.push(lastByte);
-      repeats = 0;
+    if (byteRepeats === 3) {
+      for (let count = 0; count < byte; count++) {
+        emitByte(lastByte);
+      }
+      byteRepeats = 0;
       lastByte = -1;
       continue;
     }
 
-    output.push(byte);
-    if (byte === lastByte) {
-      repeats++;
+    if (lastByte === byte) {
+      byteRepeats++;
     } else {
-      lastByte = byte;
-      repeats = 1;
+      byteRepeats = 0;
     }
+    lastByte = byte;
+    emitByte(byte);
+  }
+
+  if (outputOffset !== 0) {
+    emit(output.slice(0, outputOffset));
   }
 
   return {
-    output: Uint8Array.from(output),
     nextBit: bits.position,
     endOfStream: false,
     storedCrc,
+    outputBytes: emitted,
   };
 }
 
@@ -323,7 +345,7 @@ function decodeHuffman(bits: BitReader, table: HuffmanTable): number {
   while (length <= table.maxLength && code > table.limit[length]) {
     length++;
     if (length > table.maxLength) break;
-    code = (code << 1) | bits.readBit();
+    code = code * 2 + bits.readBit();
   }
   if (length > table.maxLength) {
     throw new Error("invalid bzip2 Huffman code");
