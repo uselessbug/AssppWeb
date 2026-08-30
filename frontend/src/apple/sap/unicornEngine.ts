@@ -21,6 +21,27 @@ export const SAP_STACK_END = SAP_STACK_BASE + SAP_STACK_SIZE;
 
 const X86_REG_RFLAGS = 253;
 
+interface WasmTableFault {
+  index: number;
+  tableLength: number;
+  functionName: string;
+  functionArity: number;
+  arguments: string[];
+  message: string;
+  stack: string;
+}
+
+interface TableGetPrototype {
+  get(index: number): unknown;
+}
+
+let wasmTableDiagnosticsInstalled = false;
+let lastWasmTableFault: WasmTableFault | undefined;
+const wasmTableWrappers = new WeakMap<
+  object,
+  Map<number, (...arguments_: unknown[]) => unknown>
+>();
+
 export type SapRegister =
   | "rax"
   | "rdi"
@@ -55,6 +76,7 @@ export class BrowserUnicornEngine {
   private closed = false;
 
   constructor(private readonly module: UnicornX86Module) {
+    installWasmTableDiagnostics();
     this.engine = new module.Unicorn(module.ARCH_X86, module.MODE_64);
   }
 
@@ -127,11 +149,16 @@ export class BrowserUnicornEngine {
   }
 
   diagnosticStderr(): string[] {
-    return [...(this.module.__assppStderr ?? [])];
+    const lines = [...(this.module.__assppStderr ?? [])];
+    if (lastWasmTableFault) {
+      lines.push(formatWasmTableFault(lastWasmTableFault));
+    }
+    return lines;
   }
 
   clearDiagnosticStderr() {
     if (this.module.__assppStderr) this.module.__assppStderr.length = 0;
+    lastWasmTableFault = undefined;
   }
 
   close() {
@@ -209,4 +236,88 @@ export class BrowserUnicornEngine {
       throw new Error("SAP guest memory range exceeds JavaScript safe integers");
     }
   }
+}
+
+function installWasmTableDiagnostics() {
+  if (wasmTableDiagnosticsInstalled || typeof WebAssembly === "undefined") {
+    return;
+  }
+  wasmTableDiagnosticsInstalled = true;
+
+  const prototype = WebAssembly.Table.prototype as unknown as TableGetPrototype;
+  const originalGet = prototype.get;
+
+  try {
+    prototype.get = function (this: WebAssembly.Table, index: number): unknown {
+      const original = originalGet.call(this, index);
+      if (typeof original !== "function") return original;
+
+      const acquisitionStack = new Error().stack ?? "";
+      if (
+        acquisitionStack !== "" &&
+        !acquisitionStack.includes("getWasmTableEntry") &&
+        !acquisitionStack.includes("unicorn_x86")
+      ) {
+        return original;
+      }
+
+      let wrappers = wasmTableWrappers.get(this);
+      if (!wrappers) {
+        wrappers = new Map();
+        wasmTableWrappers.set(this, wrappers);
+      }
+
+      const existing = wrappers.get(index);
+      if (existing) return existing;
+
+      const originalFunction = original as (...arguments_: unknown[]) => unknown;
+      const wrapped = (...arguments_: unknown[]): unknown => {
+        try {
+          return originalFunction(...arguments_);
+        } catch (error) {
+          lastWasmTableFault = {
+            index,
+            tableLength: this.length,
+            functionName: originalFunction.name || "anonymous",
+            functionArity: originalFunction.length,
+            arguments: arguments_.map(formatWasmArgument),
+            message: error instanceof Error ? error.message : String(error),
+            stack: formatStack(error),
+          };
+          throw error;
+        }
+      };
+
+      wrappers.set(index, wrapped);
+      return wrapped;
+    };
+  } catch {
+    // Some engines may expose WebAssembly.Table.prototype.get as immutable.
+    // The emulator remains usable; only this diagnostic will be unavailable.
+  }
+}
+
+function formatWasmArgument(value: unknown): string {
+  if (typeof value === "bigint") {
+    return `0x${BigInt.asUintN(64, value).toString(16)}`;
+  }
+  if (typeof value === "number" && Number.isInteger(value)) {
+    return `0x${BigInt.asUintN(32, BigInt(value)).toString(16)}(${value})`;
+  }
+  return String(value);
+}
+
+function formatWasmTableFault(fault: WasmTableFault): string {
+  return `wasmTableFault: index=${fault.index}/${fault.tableLength}, function=${fault.functionName}, arity=${fault.functionArity}, args=[${fault.arguments.join(",")}], error=${fault.message}, stack=${fault.stack}`;
+}
+
+function formatStack(error: unknown): string {
+  const stack = error instanceof Error ? error.stack : new Error().stack;
+  if (!stack) return "unavailable";
+  return stack
+    .split("\n")
+    .slice(0, 8)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(" <- ");
 }
