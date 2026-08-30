@@ -25,6 +25,13 @@ const SAP_SHIM_SIZE = 0x00100000;
 const SAP_EXECUTION_TIMEOUT_MS = 10_000;
 const SAP_MAX_OUTPUT_SIZE = 16 << 20;
 const UINT32_MAX = 0xffffffff;
+const MAX_SOFTWARE_DISPATCH_RESUMES = 1024;
+const COMMERCE_KIT_SIGN_DISPATCH_ADDRESS = SAP_KIT_BASE + 0x126777;
+const COMMERCE_KIT_SIGN_TABLE_BASE = SAP_KIT_BASE + 0x167804;
+const COMMERCE_KIT_SIGN_DISPATCH_BYTES = new Uint8Array([
+  0x48, 0x8d, 0x0d, 0x86, 0x10, 0x04, 0x00, 0x48,
+  0x63, 0x04, 0x81, 0x48, 0x01, 0xc8, 0xff, 0xe0,
+]);
 const CORE_FP_EXPORT_NAMES = [
   "_WIn9UJ86JKdV4dM",
   "_X46O5IeS",
@@ -40,6 +47,13 @@ interface BrowserSapEntryPoints {
   sign: number;
   teardown: number;
   dispose: number;
+}
+
+interface SoftwareDispatchResume {
+  index: bigint;
+  tableEntryAddress: number;
+  tableOffset: number;
+  target: number;
 }
 
 export interface BrowserSapLinkSummary {
@@ -60,9 +74,13 @@ export class BrowserSapMachine {
   private scratchCursor = 0;
   private traceHook?: BrowserUnicornCodeHook;
   private activeDeadline = 0;
+  private activePhase = "";
   private lastBlockAddress: number | undefined;
   private lastBlockSize = 0;
   private timeoutError: Error | undefined;
+  private softwareDispatchResume: SoftwareDispatchResume | undefined;
+  private softwareDispatchError: Error | undefined;
+  private softwareDispatchTrace = "none";
 
   private constructor(
     private readonly engine: BrowserUnicornEngine,
@@ -73,6 +91,26 @@ export class BrowserSapMachine {
     this.traceHook = this.engine.addBlockHook((address, size) => {
       this.lastBlockAddress = address;
       this.lastBlockSize = size;
+
+      if (
+        this.activePhase === "sign" &&
+        address === COMMERCE_KIT_SIGN_DISPATCH_ADDRESS
+      ) {
+        try {
+          this.softwareDispatchResume = this.decodeSignDispatch();
+          this.softwareDispatchTrace = describeSoftwareDispatch(
+            this.softwareDispatchResume,
+          );
+          this.engine.stop();
+          return;
+        } catch (error) {
+          this.softwareDispatchError =
+            error instanceof Error ? error : new Error(String(error));
+          this.engine.stop();
+          return;
+        }
+      }
+
       if (
         this.activeDeadline !== 0 &&
         !this.timeoutError &&
@@ -421,10 +459,34 @@ export class BrowserSapMachine {
     this.lastBlockAddress = undefined;
     this.lastBlockSize = 0;
     this.timeoutError = undefined;
+    this.softwareDispatchResume = undefined;
+    this.softwareDispatchError = undefined;
+    this.softwareDispatchTrace = "none";
+    this.activePhase = phase;
     this.activeDeadline = performance.now() + SAP_EXECUTION_TIMEOUT_MS;
 
+    let beginAddress = functionAddress;
+    let resumeCount = 0;
+
     try {
-      this.engine.startBrowserSafe(functionAddress, SAP_RETURN_ADDRESS);
+      for (;;) {
+        this.softwareDispatchResume = undefined;
+        this.engine.startBrowserSafe(beginAddress, SAP_RETURN_ADDRESS);
+
+        if (this.softwareDispatchError) throw this.softwareDispatchError;
+        if (!this.softwareDispatchResume) break;
+
+        resumeCount++;
+        if (resumeCount > MAX_SOFTWARE_DISPATCH_RESUMES) {
+          throw new Error("SAP sign software dispatch exceeded safety limit");
+        }
+
+        const resume = this.softwareDispatchResume;
+        this.engine.regWrite("rcx", BigInt(COMMERCE_KIT_SIGN_TABLE_BASE));
+        this.engine.regWrite("rax", BigInt(resume.target));
+        this.engine.regWrite("rip", BigInt(resume.target));
+        beginAddress = resume.target;
+      }
     } catch (error) {
       const fault = this.shims.getFault();
       if (fault) throw fault;
@@ -432,10 +494,11 @@ export class BrowserSapMachine {
       const message = error instanceof Error ? error.message : String(error);
       const stderr = this.engine.diagnosticStderr();
       throw new Error(
-        `execute SAP guest function phase=${phase}: ${message}; lastBlock=${describeGuestBlock(this.lastBlockAddress, this.lastBlockSize)}; lastBlockBytes=${this.readDiagnosticBlockBytes()}; entry32=${bytesToHex(entryBytes)}; unicornStderr=${formatStderr(stderr)}`,
+        `execute SAP guest function phase=${phase}: ${message}; lastBlock=${describeGuestBlock(this.lastBlockAddress, this.lastBlockSize)}; lastBlockBytes=${this.readDiagnosticBlockBytes()}; entry32=${bytesToHex(entryBytes)}; softwareDispatch=${this.softwareDispatchTrace}; unicornStderr=${formatStderr(stderr)}`,
       );
     } finally {
       this.activeDeadline = 0;
+      this.activePhase = "";
     }
 
     if (this.timeoutError) throw this.timeoutError;
@@ -445,11 +508,60 @@ export class BrowserSapMachine {
     const instruction = this.engine.regRead("rip");
     if (instruction !== BigInt(SAP_RETURN_ADDRESS)) {
       throw new Error(
-        `SAP guest phase=${phase} stopped unexpectedly at 0x${instruction.toString(16)}; lastBlock=${describeGuestBlock(this.lastBlockAddress, this.lastBlockSize)}; lastBlockBytes=${this.readDiagnosticBlockBytes()}`,
+        `SAP guest phase=${phase} stopped unexpectedly at 0x${instruction.toString(16)}; lastBlock=${describeGuestBlock(this.lastBlockAddress, this.lastBlockSize)}; lastBlockBytes=${this.readDiagnosticBlockBytes()}; softwareDispatch=${this.softwareDispatchTrace}`,
       );
     }
 
     return this.engine.regRead("rax");
+  }
+
+  private decodeSignDispatch(): SoftwareDispatchResume {
+    const actual = this.engine.memRead(
+      COMMERCE_KIT_SIGN_DISPATCH_ADDRESS,
+      COMMERCE_KIT_SIGN_DISPATCH_BYTES.length,
+    );
+    if (!bytesEqual(actual, COMMERCE_KIT_SIGN_DISPATCH_BYTES)) {
+      throw new Error(
+        `CommerceKit sign dispatch bytes changed: ${bytesToHex(actual)}`,
+      );
+    }
+
+    const index = this.engine.regRead("rax");
+    if (index < 0n || index > BigInt(Number.MAX_SAFE_INTEGER / 4)) {
+      throw new Error(
+        `CommerceKit sign dispatch index 0x${index.toString(16)} is outside the safe range`,
+      );
+    }
+
+    const tableEntryAddress =
+      COMMERCE_KIT_SIGN_TABLE_BASE + Number(index) * 4;
+    if (!Number.isSafeInteger(tableEntryAddress)) {
+      throw new Error("CommerceKit sign jump-table address exceeds safe range");
+    }
+
+    const entry = this.engine.memRead(tableEntryAddress, 4);
+    const tableOffset = new DataView(
+      entry.buffer,
+      entry.byteOffset,
+      entry.byteLength,
+    ).getInt32(0, true);
+    const target = COMMERCE_KIT_SIGN_TABLE_BASE + tableOffset;
+    if (
+      !Number.isSafeInteger(target) ||
+      target < SAP_KIT_BASE ||
+      target >= SAP_SHIM_BASE
+    ) {
+      throw new Error(
+        `CommerceKit sign jump-table target 0x${target.toString(16)} is outside CommerceKit`,
+      );
+    }
+
+    return {
+      index,
+      tableEntryAddress,
+      tableOffset,
+      target,
+    };
   }
 
   private readDiagnosticBlockBytes(): string {
@@ -595,6 +707,19 @@ function describeGuestBlock(address: number | undefined, size: number): string {
   }
 
   return `0x${address.toString(16)}(size=${size})`;
+}
+
+function describeSoftwareDispatch(resume: SoftwareDispatchResume): string {
+  return `index=0x${resume.index.toString(16)},entry=0x${resume.tableEntryAddress.toString(16)},offset=${formatSignedHex(resume.tableOffset)},target=0x${resume.target.toString(16)}`;
+}
+
+function formatSignedHex(value: number): string {
+  return value < 0 ? `-0x${(-value).toString(16)}` : `0x${value.toString(16)}`;
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
 }
 
 function bytesToHex(input: Uint8Array): string {
