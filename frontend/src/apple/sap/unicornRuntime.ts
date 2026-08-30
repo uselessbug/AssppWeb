@@ -1,4 +1,5 @@
 import { registerBrowserSapSignerFactory } from "../sap";
+import { inspectAppleSapPackage } from "./assets";
 import { BrowserSapMachine } from "./machine";
 
 const UNICORN_VERSION = "2.1.4";
@@ -52,6 +53,7 @@ export interface UnicornX86Module {
 interface SapDebugApi {
   unicornVersion: string;
   runUnicornX64SmokeTest: () => Promise<UnicornSmokeResult>;
+  inspectAppleSapPackage: typeof inspectAppleSapPackage;
 }
 
 declare global {
@@ -81,8 +83,9 @@ export function installExperimentalBrowserSapRuntime() {
     const machine = BrowserSapMachine.open(module);
     machine.close();
 
+    const probe = await inspectAppleSapPackage();
     throw new Error(
-      "Browser SAP guest machine bootstrapped successfully; Apple SAP assets and Mach-O loader are the next required stage",
+      `Browser SAP asset XAR probe succeeded: Payload=${probe.payloadLength} bytes, bzip@${probe.bzipStreamOffset}, probe=${probe.bzipProbeHex}; bzip2/CPIO extraction and Mach-O loading are the next required stage`,
     );
   });
 
@@ -91,6 +94,7 @@ export function installExperimentalBrowserSapRuntime() {
       unicornVersion: UNICORN_VERSION,
       runUnicornX64SmokeTest: async () =>
         runUnicornX64SmokeTest(await loadUnicornX86Module()),
+      inspectAppleSapPackage,
     };
   }
 }
