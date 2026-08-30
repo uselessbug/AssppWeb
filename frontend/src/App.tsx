@@ -1,28 +1,28 @@
-import { lazy, Suspense, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Route, Routes } from 'react-router-dom';
-import MobileHeader from './components/Layout/MobileHeader';
-import MobileNav from './components/Layout/MobileNav';
-import Sidebar from './components/Layout/Sidebar';
-import GlobalDownloadNotifier from './components/common/GlobalDownloadNotifier';
-import Spinner from './components/common/Spinner';
-import ToastContainer from './components/common/ToastContainer';
-import PasswordGate from './components/Auth/PasswordGate';
-import { useSettingsStore } from './store/settings';
+import { lazy, Suspense, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { Route, Routes } from "react-router-dom";
+import MobileHeader from "./components/Layout/MobileHeader";
+import MobileNav from "./components/Layout/MobileNav";
+import Sidebar from "./components/Layout/Sidebar";
+import GlobalDownloadNotifier from "./components/common/GlobalDownloadNotifier";
+import Spinner from "./components/common/Spinner";
+import ToastContainer from "./components/common/ToastContainer";
+import PasswordGate from "./components/Auth/PasswordGate";
+import { useSettingsStore } from "./store/settings";
 
-const HomePage = lazy(() => import('./components/Welcome/HomePage'));
-const AccountList = lazy(() => import('./components/Account/AccountList'));
+const HomePage = lazy(() => import("./components/Welcome/HomePage"));
+const AccountList = lazy(() => import("./components/Account/AccountList"));
 const AddAccountForm = lazy(
-  () => import('./components/Account/AddAccountForm'),
+  () => import("./components/Account/AddAccountForm"),
 );
-const AccountDetail = lazy(() => import('./components/Account/AccountDetail'));
-const SearchPage = lazy(() => import('./components/Search/SearchPage'));
-const ProductDetail = lazy(() => import('./components/Search/ProductDetail'));
-const VersionHistory = lazy(() => import('./components/Search/VersionHistory'));
-const DownloadList = lazy(() => import('./components/Download/DownloadList'));
-const AddDownload = lazy(() => import('./components/Download/AddDownload'));
-const PackageDetail = lazy(() => import('./components/Download/PackageDetail'));
-const SettingsPage = lazy(() => import('./components/Settings/SettingsPage'));
+const AccountDetail = lazy(() => import("./components/Account/AccountDetail"));
+const SearchPage = lazy(() => import("./components/Search/SearchPage"));
+const ProductDetail = lazy(() => import("./components/Search/ProductDetail"));
+const VersionHistory = lazy(() => import("./components/Search/VersionHistory"));
+const DownloadList = lazy(() => import("./components/Download/DownloadList"));
+const AddDownload = lazy(() => import("./components/Download/AddDownload"));
+const PackageDetail = lazy(() => import("./components/Download/PackageDetail"));
+const SettingsPage = lazy(() => import("./components/Settings/SettingsPage"));
 
 function Loading() {
   const { t } = useTranslation();
@@ -34,7 +34,7 @@ function Loading() {
     >
       <div className="inline-flex items-center gap-2.5 rounded-full border border-gray-200/80 bg-white/90 px-4 py-2.5 text-sm font-medium text-gray-500 shadow-sm dark:border-gray-800 dark:bg-gray-900/90 dark:text-gray-400">
         <Spinner />
-        {t('loading')}
+        {t("loading")}
       </div>
     </div>
   );
@@ -45,23 +45,23 @@ export default function App() {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
     function applyTheme() {
       const isDark =
-        theme === 'dark' || (theme === 'system' && mediaQuery.matches);
+        theme === "dark" || (theme === "system" && mediaQuery.matches);
       if (isDark) {
-        root.classList.add('dark');
-        root.style.colorScheme = 'dark';
+        root.classList.add("dark");
+        root.style.colorScheme = "dark";
       } else {
-        root.classList.remove('dark');
-        root.style.colorScheme = 'light';
+        root.classList.remove("dark");
+        root.style.colorScheme = "light";
       }
     }
 
     applyTheme();
-    mediaQuery.addEventListener('change', applyTheme);
-    return () => mediaQuery.removeEventListener('change', applyTheme);
+    mediaQuery.addEventListener("change", applyTheme);
+    return () => mediaQuery.removeEventListener("change", applyTheme);
   }, [theme]);
 
   return (

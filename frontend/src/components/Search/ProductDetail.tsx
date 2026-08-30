@@ -2,18 +2,18 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
-import Alert from '../common/Alert';
+import Alert from "../common/Alert";
 import AppIcon from "../common/AppIcon";
-import LoadingState from '../common/LoadingState';
-import Spinner from '../common/Spinner';
+import LoadingState from "../common/LoadingState";
+import Spinner from "../common/Spinner";
 import {
   isProductPreviewEnabled,
   previewProductAccounts,
   previewProductApp,
-} from './productPreview';
+} from "./productPreview";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
-import { useToastStore } from '../../store/toast';
+import { useToastStore } from "../../store/toast";
 import { lookupApp } from "../../api/search";
 import { storeIdToCountry } from "../../apple/config";
 import type { Software } from "../../types";
@@ -38,7 +38,7 @@ export default function ProductDetail() {
     country?: string;
   } | null;
   const stateApp = previewEnabled ? previewProductApp : routeState?.app;
-  const stateCountry = previewEnabled ? 'US' : routeState?.country;
+  const stateCountry = previewEnabled ? "US" : routeState?.country;
   const [country] = useState(stateCountry ?? "US");
   const [app, setApp] = useState<Software | null>(stateApp ?? null);
   const [loading, setLoading] = useState(!stateApp);
@@ -53,7 +53,7 @@ export default function ProductDetail() {
   );
 
   const account = filteredAccounts.find((a) => a.email === selectedAccount);
-  const isDownloading = loadingAction === 'download';
+  const isDownloading = loadingAction === "download";
 
   useEffect(() => {
     if (!stateApp && appId) {
@@ -101,9 +101,9 @@ export default function ProductDetail() {
       if (previewEnabled) {
         await waitForPreviewAction();
         addToast(
-          t('search.product.previewActionComplete'),
-          'success',
-          t('search.product.previewBadge'),
+          t("search.product.previewActionComplete"),
+          "success",
+          t("search.product.previewBadge"),
         );
         return;
       }
@@ -122,9 +122,9 @@ export default function ProductDetail() {
       if (previewEnabled) {
         await waitForPreviewAction();
         addToast(
-          t('search.product.previewActionComplete'),
-          'success',
-          t('search.product.previewBadge'),
+          t("search.product.previewActionComplete"),
+          "success",
+          t("search.product.previewBadge"),
         );
         return;
       }
@@ -142,9 +142,9 @@ export default function ProductDetail() {
         {previewEnabled && (
           <Alert type="warning">
             <span className="font-semibold">
-              {t('search.product.previewBadge')}
-            </span>{' '}
-            {t('search.product.previewDescription')}
+              {t("search.product.previewBadge")}
+            </span>{" "}
+            {t("search.product.previewDescription")}
           </Alert>
         )}
 
@@ -227,8 +227,8 @@ export default function ProductDetail() {
                 aria-busy={isDownloading}
                 className={`inline-flex min-h-10 w-full min-w-0 items-center justify-center gap-1.5 rounded-full bg-blue-600 px-2 py-2 text-center text-xs font-semibold leading-tight text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed sm:gap-2 sm:px-5 sm:text-sm ${
                   !account || (loadingAction !== null && !isDownloading)
-                    ? 'opacity-50'
-                    : ''
+                    ? "opacity-50"
+                    : ""
                 }`}
               >
                 <span
@@ -255,21 +255,39 @@ export default function ProductDetail() {
             {t("search.product.details")}
           </h2>
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.bundleId")}</dt>
-            <dd className="text-gray-900 dark:text-gray-200 break-all">{app.bundleID}</dd>
-            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.version")}</dt>
+            <dt className="text-gray-500 dark:text-gray-400">
+              {t("search.product.bundleId")}
+            </dt>
+            <dd className="text-gray-900 dark:text-gray-200 break-all">
+              {app.bundleID}
+            </dd>
+            <dt className="text-gray-500 dark:text-gray-400">
+              {t("search.product.version")}
+            </dt>
             <dd className="text-gray-900 dark:text-gray-200">{app.version}</dd>
-            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.size")}</dt>
+            <dt className="text-gray-500 dark:text-gray-400">
+              {t("search.product.size")}
+            </dt>
             <dd className="text-gray-900 dark:text-gray-200">
               {app.fileSizeBytes
                 ? `${(parseInt(app.fileSizeBytes) / 1024 / 1024).toFixed(1)} MB`
                 : "N/A"}
             </dd>
-            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.minOs")}</dt>
-            <dd className="text-gray-900 dark:text-gray-200">{app.minimumOsVersion}</dd>
-            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.seller")}</dt>
-            <dd className="text-gray-900 dark:text-gray-200">{app.sellerName}</dd>
-            <dt className="text-gray-500 dark:text-gray-400">{t("search.product.released")}</dt>
+            <dt className="text-gray-500 dark:text-gray-400">
+              {t("search.product.minOs")}
+            </dt>
+            <dd className="text-gray-900 dark:text-gray-200">
+              {app.minimumOsVersion}
+            </dd>
+            <dt className="text-gray-500 dark:text-gray-400">
+              {t("search.product.seller")}
+            </dt>
+            <dd className="text-gray-900 dark:text-gray-200">
+              {app.sellerName}
+            </dd>
+            <dt className="text-gray-500 dark:text-gray-400">
+              {t("search.product.released")}
+            </dt>
             <dd className="text-gray-900 dark:text-gray-200">
               {new Date(app.releaseDate).toLocaleDateString()}
             </dd>
@@ -278,21 +296,31 @@ export default function ProductDetail() {
 
         {app.description && (
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 sm:p-6">
-            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">{t("search.product.description")}</h2>
-            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{app.description}</p>
+            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">
+              {t("search.product.description")}
+            </h2>
+            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
+              {app.description}
+            </p>
           </section>
         )}
 
         {app.releaseNotes && (
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 sm:p-6">
-            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">{t("search.product.releaseNotes")}</h2>
-            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{app.releaseNotes}</p>
+            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">
+              {t("search.product.releaseNotes")}
+            </h2>
+            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
+              {app.releaseNotes}
+            </p>
           </section>
         )}
 
         {app.screenshotUrls && app.screenshotUrls.length > 0 && (
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 sm:p-6">
-            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">{t("search.product.screenshots")}</h2>
+            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">
+              {t("search.product.screenshots")}
+            </h2>
             <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {app.screenshotUrls.map((url, i) => (
                 <img

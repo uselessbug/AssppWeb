@@ -1,8 +1,8 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
-import Spinner from '../common/Spinner';
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import Spinner from "../common/Spinner";
 
-const SESSION_KEY = 'auth-token';
+const SESSION_KEY = "auth-token";
 
 export function getAccessToken(): string | null {
   return sessionStorage.getItem(SESSION_KEY);
@@ -10,27 +10,27 @@ export function getAccessToken(): string | null {
 
 async function hashPassword(password: string): Promise<string> {
   const data = new TextEncoder().encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export default function PasswordGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const [status, setStatus] = useState<'loading' | 'required' | 'verified'>(
-    'loading',
+  const [status, setStatus] = useState<"loading" | "required" | "verified">(
+    "loading",
   );
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetch('/api/auth/status')
+    fetch("/api/auth/status")
       .then((r) => r.json())
       .then(async (data: { required: boolean }) => {
         if (!data.required) {
           sessionStorage.removeItem(SESSION_KEY);
-          setStatus('verified');
+          setStatus("verified");
           return;
         }
 
@@ -38,14 +38,14 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
         if (storedToken) {
           // 校验存储的令牌——口令变更后令牌可能已失效
           try {
-            const res = await fetch('/api/auth/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+            const res = await fetch("/api/auth/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ token: storedToken }),
             });
             const result = (await res.json()) as { ok: boolean };
             if (result.ok) {
-              setStatus('verified');
+              setStatus("verified");
               return;
             }
           } catch {
@@ -54,56 +54,56 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
           sessionStorage.removeItem(SESSION_KEY);
         }
 
-        setStatus('required');
+        setStatus("required");
       })
       .catch(() => {
         // If we can't reach the server, let the app load normally
-        setStatus('verified');
+        setStatus("verified");
       });
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setSubmitting(true);
 
     try {
       const hash = await hashPassword(password);
-      const res = await fetch('/api/auth/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/auth/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: hash }),
       });
       const data = (await res.json()) as { ok: boolean };
 
       if (data.ok) {
         sessionStorage.setItem(SESSION_KEY, hash);
-        setStatus('verified');
+        setStatus("verified");
       } else {
-        setError(t('auth.error'));
+        setError(t("auth.error"));
       }
     } catch {
-      setError(t('auth.error'));
+      setError(t("auth.error"));
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <GateBackdrop>
         <div className="flex flex-col items-center gap-4 text-blue-600 dark:text-blue-400">
           <AppMark />
           <div className="flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400">
             <Spinner />
-            <span>{t('loading')}</span>
+            <span>{t("loading")}</span>
           </div>
         </div>
       </GateBackdrop>
     );
   }
 
-  if (status === 'verified') {
+  if (status === "verified") {
     return <>{children}</>;
   }
 
@@ -113,7 +113,7 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
         <div className="text-center">
           <AppMark />
           <h1 className="mt-5 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
-            {t('auth.title')}
+            {t("auth.title")}
           </h1>
           <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">
             Asspp Web
@@ -130,12 +130,12 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                if (error) setError('');
+                if (error) setError("");
               }}
-              placeholder={t('auth.placeholder')}
-              aria-label={t('auth.placeholder')}
+              placeholder={t("auth.placeholder")}
+              aria-label={t("auth.placeholder")}
               aria-invalid={Boolean(error)}
-              aria-describedby={error ? 'access-password-error' : undefined}
+              aria-describedby={error ? "access-password-error" : undefined}
               autoComplete="current-password"
               autoFocus
               className="min-h-12 w-full rounded-2xl border border-gray-200 bg-gray-100/80 py-3 pl-11 pr-4 text-base text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800/80 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-blue-400 dark:focus:bg-gray-800"
@@ -159,7 +159,7 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-400 dark:focus-visible:ring-offset-gray-900"
           >
             {submitting && <Spinner />}
-            {submitting ? t('auth.verifying') : t('auth.submit')}
+            {submitting ? t("auth.verifying") : t("auth.submit")}
           </button>
         </form>
       </main>

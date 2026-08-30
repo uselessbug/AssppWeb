@@ -1,6 +1,6 @@
-import { inflateRawSync } from 'zlib';
-import bplistParser from 'bplist-parser';
-import plist from 'plist';
+import { inflateRawSync } from "zlib";
+import bplistParser from "bplist-parser";
+import plist from "plist";
 
 export interface RemoteIpaVersionMetadata {
   displayVersion: string;
@@ -57,26 +57,26 @@ async function fetchRange(
     start < 0 ||
     end < start
   ) {
-    throw new Error('Invalid remote IPA byte range');
+    throw new Error("Invalid remote IPA byte range");
   }
 
   const response = await fetch(url, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Accept-Encoding': 'identity',
+      "Accept-Encoding": "identity",
       Range: `bytes=${start}-${end}`,
     },
-    redirect: 'follow',
+    redirect: "follow",
   });
 
   if (response.status !== 206) {
     throw new Error(`Expected partial content, got HTTP ${response.status}`);
   }
 
-  const contentRange = response.headers.get('content-range') ?? '';
+  const contentRange = response.headers.get("content-range") ?? "";
   const sizeMatch = contentRange.match(/\/(\d+)\s*$/);
   const size = sizeMatch
-    ? bigintToSafeNumber(BigInt(sizeMatch[1]), 'Remote IPA size')
+    ? bigintToSafeNumber(BigInt(sizeMatch[1]), "Remote IPA size")
     : null;
   return {
     data: Buffer.from(await response.arrayBuffer()),
@@ -87,7 +87,7 @@ async function fetchRange(
 async function readRemoteSize(url: string): Promise<number> {
   const { size } = await fetchRange(url, 0, 0);
   if (!size || size <= 0) {
-    throw new Error('Missing remote IPA size');
+    throw new Error("Missing remote IPA size");
   }
   return size;
 }
@@ -98,7 +98,7 @@ function findEndOfCentralDirectory(buffer: Buffer): number {
       return offset;
     }
   }
-  throw new Error('Could not find ZIP end of central directory');
+  throw new Error("Could not find ZIP end of central directory");
 }
 
 async function readCentralDirectoryLocation(
@@ -109,7 +109,7 @@ async function readCentralDirectoryLocation(
   eocdOffset: number,
 ): Promise<CentralDirectoryLocation> {
   if (eocdOffset + 22 > tail.length) {
-    throw new Error('Truncated ZIP end of central directory');
+    throw new Error("Truncated ZIP end of central directory");
   }
 
   const classicSize = tail.readUInt32LE(eocdOffset + 12);
@@ -123,16 +123,16 @@ async function readCentralDirectoryLocation(
     locatorOffset < 0 ||
     tail.readUInt32LE(locatorOffset) !== ZIP64_EOCD_LOCATOR_SIGNATURE
   ) {
-    throw new Error('Missing ZIP64 end of central directory locator');
+    throw new Error("Missing ZIP64 end of central directory locator");
   }
 
   const zip64EocdOffset = readUInt64LE(
     tail,
     locatorOffset + 8,
-    'ZIP64 end of central directory offset',
+    "ZIP64 end of central directory offset",
   );
   if (zip64EocdOffset >= size) {
-    throw new Error('Invalid ZIP64 end of central directory offset');
+    throw new Error("Invalid ZIP64 end of central directory offset");
   }
 
   const relativeOffset = zip64EocdOffset - tailStart;
@@ -151,15 +151,15 @@ async function readCentralDirectoryLocation(
     zip64Header.length < ZIP64_EOCD_MIN_SIZE ||
     zip64Header.readUInt32LE(0) !== ZIP64_EOCD_SIGNATURE
   ) {
-    throw new Error('Invalid ZIP64 end of central directory');
+    throw new Error("Invalid ZIP64 end of central directory");
   }
-  if (readUInt64LE(zip64Header, 4, 'ZIP64 EOCD record size') < 44) {
-    throw new Error('Invalid ZIP64 end of central directory record size');
+  if (readUInt64LE(zip64Header, 4, "ZIP64 EOCD record size") < 44) {
+    throw new Error("Invalid ZIP64 end of central directory record size");
   }
 
   return {
-    size: readUInt64LE(zip64Header, 40, 'ZIP64 central directory size'),
-    offset: readUInt64LE(zip64Header, 48, 'ZIP64 central directory offset'),
+    size: readUInt64LE(zip64Header, 40, "ZIP64 central directory size"),
+    offset: readUInt64LE(zip64Header, 48, "ZIP64 central directory offset"),
   };
 }
 
@@ -187,11 +187,11 @@ function findExtraField(
     const length = buffer.readUInt16LE(offset + 2);
     const dataStart = offset + 4;
     const dataEnd = dataStart + length;
-    if (dataEnd > end) throw new Error('Truncated ZIP extra field');
+    if (dataEnd > end) throw new Error("Truncated ZIP extra field");
     if (id === fieldId) return buffer.subarray(dataStart, dataEnd);
     offset = dataEnd;
   }
-  if (offset !== end) throw new Error('Truncated ZIP extra field header');
+  if (offset !== end) throw new Error("Truncated ZIP extra field header");
   return null;
 }
 
@@ -210,24 +210,25 @@ function resolveZip64EntryValues(
   };
 
   if (legacyUncompressedSize === UINT32_MAX) {
-    readNext('ZIP64 uncompressed size');
+    readNext("ZIP64 uncompressed size");
   }
   const compressedSize =
     legacyCompressedSize === UINT32_MAX
-      ? readNext('ZIP64 compressed size')
+      ? readNext("ZIP64 compressed size")
       : legacyCompressedSize;
   const localHeaderOffset =
     legacyLocalHeaderOffset === UINT32_MAX
-      ? readNext('ZIP64 local header offset')
+      ? readNext("ZIP64 local header offset")
       : legacyLocalHeaderOffset;
 
   if (legacyDiskStart === UINT16_MAX) {
-    if (offset + 4 > extra.length) throw new Error('Truncated ZIP64 disk start');
+    if (offset + 4 > extra.length)
+      throw new Error("Truncated ZIP64 disk start");
     if (extra.readUInt32LE(offset) !== 0) {
-      throw new Error('Multi-disk ZIP archives are not supported');
+      throw new Error("Multi-disk ZIP archives are not supported");
     }
   } else if (legacyDiskStart !== 0) {
-    throw new Error('Multi-disk ZIP archives are not supported');
+    throw new Error("Multi-disk ZIP archives are not supported");
   }
 
   return { compressedSize, localHeaderOffset };
@@ -237,7 +238,7 @@ function findInfoPlistEntry(directory: Buffer): ZipEntry {
   let offset = 0;
   while (offset + 46 <= directory.length) {
     if (directory.readUInt32LE(offset) !== CENTRAL_DIRECTORY_SIGNATURE) {
-      throw new Error('Invalid ZIP central directory');
+      throw new Error("Invalid ZIP central directory");
     }
 
     const compressionMethod = directory.readUInt16LE(offset + 10);
@@ -255,10 +256,10 @@ function findInfoPlistEntry(directory: Buffer): ZipEntry {
     const extraEnd = nameEnd + extraLength;
     const entryEnd = extraEnd + commentLength;
     if (entryEnd > directory.length) {
-      throw new Error('Truncated ZIP central directory entry');
+      throw new Error("Truncated ZIP central directory entry");
     }
 
-    const filename = directory.subarray(nameStart, nameEnd).toString('utf-8');
+    const filename = directory.subarray(nameStart, nameEnd).toString("utf-8");
     if (/^Payload\/[^/]+\.app\/Info\.plist$/.test(filename)) {
       let compressedSize = legacyCompressedSize;
       let localHeaderOffset = legacyLocalHeaderOffset;
@@ -276,7 +277,7 @@ function findInfoPlistEntry(directory: Buffer): ZipEntry {
           ZIP64_EXTRA_FIELD_ID,
         );
         if (!zip64Extra) {
-          throw new Error('Missing ZIP64 extended information for Info.plist');
+          throw new Error("Missing ZIP64 extended information for Info.plist");
         }
         ({ compressedSize, localHeaderOffset } = resolveZip64EntryValues(
           zip64Extra,
@@ -298,7 +299,7 @@ function findInfoPlistEntry(directory: Buffer): ZipEntry {
     offset = entryEnd;
   }
 
-  throw new Error('Could not find main app Info.plist');
+  throw new Error("Could not find main app Info.plist");
 }
 
 async function readEntryData(url: string, entry: ZipEntry): Promise<Buffer> {
@@ -306,14 +307,14 @@ async function readEntryData(url: string, entry: ZipEntry): Promise<Buffer> {
     await fetchRange(url, entry.localHeaderOffset, entry.localHeaderOffset + 29)
   ).data;
   if (header.length < 30 || header.readUInt32LE(0) !== LOCAL_FILE_SIGNATURE) {
-    throw new Error('Invalid ZIP local file header');
+    throw new Error("Invalid ZIP local file header");
   }
 
   const filenameLength = header.readUInt16LE(26);
   const extraLength = header.readUInt16LE(28);
   const dataStart = entry.localHeaderOffset + 30 + filenameLength + extraLength;
   if (!Number.isSafeInteger(dataStart)) {
-    throw new Error('ZIP entry data offset exceeds the supported range');
+    throw new Error("ZIP entry data offset exceeds the supported range");
   }
   if (entry.compressedSize === 0) return Buffer.alloc(0);
   const compressed = (
@@ -322,13 +323,15 @@ async function readEntryData(url: string, entry: ZipEntry): Promise<Buffer> {
 
   if (entry.compressionMethod === 0) return compressed;
   if (entry.compressionMethod === 8) return inflateRawSync(compressed);
-  throw new Error(`Unsupported ZIP compression method ${entry.compressionMethod}`);
+  throw new Error(
+    `Unsupported ZIP compression method ${entry.compressionMethod}`,
+  );
 }
 
 function parsePlistBuffer(data: Buffer): Record<string, unknown> {
   try {
     const parsed = bplistParser.parseBuffer(data);
-    if (parsed.length > 0 && parsed[0] && typeof parsed[0] === 'object') {
+    if (parsed.length > 0 && parsed[0] && typeof parsed[0] === "object") {
       return parsed[0] as Record<string, unknown>;
     }
   } catch {
@@ -336,33 +339,37 @@ function parsePlistBuffer(data: Buffer): Record<string, unknown> {
   }
 
   try {
-    const parsed = plist.parse(data.toString('utf-8'));
-    if (parsed && typeof parsed === 'object') {
+    const parsed = plist.parse(data.toString("utf-8"));
+    if (parsed && typeof parsed === "object") {
       return parsed as Record<string, unknown>;
     }
   } catch {
     // Report a single stable parsing error below.
   }
 
-  throw new Error('Could not parse IPA Info.plist');
+  throw new Error("Could not parse IPA Info.plist");
 }
 
 function readDisplayVersion(metadata: Record<string, unknown>): string {
-  for (const key of ['CFBundleShortVersionString', 'bundleShortVersionString']) {
+  for (const key of [
+    "CFBundleShortVersionString",
+    "bundleShortVersionString",
+  ]) {
     const value = metadata[key];
-    if (typeof value === 'string' && value.trim()) return value.trim();
-    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value))
+      return String(value);
   }
-  throw new Error('Info.plist does not contain a display version');
+  throw new Error("Info.plist does not contain a display version");
 }
 
 function parseReleaseDate(value: unknown): Date | null {
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
-  if (typeof value === 'number' && Number.isFinite(value)) {
+  if (typeof value === "number" && Number.isFinite(value)) {
     const date = new Date(value * 1000);
     return Number.isNaN(date.getTime()) ? null : date;
   }
-  if (typeof value !== 'string' || !value.trim()) return null;
+  if (typeof value !== "string" || !value.trim()) return null;
 
   const trimmed = value.trim();
   const parsed = new Date(trimmed);
@@ -372,7 +379,9 @@ function parseReleaseDate(value: unknown): Date | null {
     /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})$/,
   );
   if (!longDate) return null;
-  const fallback = new Date(`${longDate[2]} ${longDate[3]}, ${longDate[4]} UTC`);
+  const fallback = new Date(
+    `${longDate[2]} ${longDate[3]}, ${longDate[4]} UTC`,
+  );
   return Number.isNaN(fallback.getTime()) ? null : fallback;
 }
 
@@ -380,14 +389,14 @@ function readReleaseDate(
   metadata: Record<string, unknown>,
   modifiedAt: Date | null,
 ): Date {
-  for (const key of ['releaseDate', 'ReleaseDate']) {
+  for (const key of ["releaseDate", "ReleaseDate"]) {
     if (!(key in metadata)) continue;
     const parsed = parseReleaseDate(metadata[key]);
     if (!parsed) throw new Error(`Invalid ${key} in Info.plist`);
     return parsed;
   }
   if (modifiedAt) return modifiedAt;
-  throw new Error('Info.plist does not contain a release date');
+  throw new Error("Info.plist does not contain a release date");
 }
 
 export async function readRemoteIpaVersionMetadata(
@@ -411,7 +420,7 @@ export async function readRemoteIpaVersionMetadata(
     directory.offset < 0 ||
     directoryEnd > size
   ) {
-    throw new Error('Invalid ZIP central directory bounds');
+    throw new Error("Invalid ZIP central directory bounds");
   }
 
   const directoryData = (

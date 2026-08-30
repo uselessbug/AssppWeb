@@ -1,10 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import PageContainer from '../Layout/PageContainer';
-import { useAccounts } from '../../hooks/useAccounts';
-import { apiGet } from '../../api/client';
-import { accountHash } from '../../utils/account';
+import { useEffect, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import PageContainer from "../Layout/PageContainer";
+import { useAccounts } from "../../hooks/useAccounts";
+import { apiGet } from "../../api/client";
+import { accountHash } from "../../utils/account";
 
 interface Stats {
   accounts: number;
@@ -36,7 +36,7 @@ export default function HomePage() {
       if (cancelled) return;
 
       const params = new URLSearchParams({
-        accountHashes: hashes.join(','),
+        accountHashes: hashes.join(","),
       });
 
       const [downloads, packages] = await Promise.all([
@@ -61,12 +61,12 @@ export default function HomePage() {
   const primaryAction =
     accounts.length === 0
       ? {
-          to: '/accounts/add',
-          label: t('home.actions.addAccount'),
+          to: "/accounts/add",
+          label: t("home.actions.addAccount"),
         }
       : {
-          to: '/search',
-          label: t('home.actions.searchApps'),
+          to: "/search",
+          label: t("home.actions.searchApps"),
         };
 
   return (
@@ -88,10 +88,10 @@ export default function HomePage() {
               App Store
             </div>
             <h1 className="max-w-full whitespace-nowrap text-[clamp(1.5rem,7vw,1.875rem)] font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">
-              {t('home.welcome')}
+              {t("home.welcome")}
             </h1>
             <p className="mt-4 max-w-full whitespace-nowrap text-[clamp(0.625rem,3.1vw,1rem)] leading-relaxed tracking-[-0.015em] text-blue-50 sm:max-w-lg sm:text-lg sm:leading-7">
-              {t('home.subtitle')}
+              {t("home.subtitle")}
             </p>
             <Link
               to={primaryAction.to}
@@ -122,25 +122,25 @@ export default function HomePage() {
         </section>
 
         <section
-          aria-label={t('home.welcome')}
+          aria-label={t("home.welcome")}
           className="grid grid-cols-1 gap-4 sm:grid-cols-3"
         >
           <StatCard
             icon={<AccountGlyph className="h-5 w-5" />}
             iconClassName="bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
-            label={t('home.stats.accounts')}
+            label={t("home.stats.accounts")}
             value={stats.accounts}
           />
           <StatCard
             icon={<DownloadGlyph className="h-5 w-5" />}
             iconClassName="bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-400"
-            label={t('home.stats.downloads')}
+            label={t("home.stats.downloads")}
             value={stats.downloads}
           />
           <StatCard
             icon={<PackageGlyph className="h-5 w-5" />}
             iconClassName="bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400"
-            label={t('home.stats.packages')}
+            label={t("home.stats.packages")}
             value={stats.packages}
           />
         </section>
@@ -150,22 +150,22 @@ export default function HomePage() {
             to="/accounts/add"
             icon={<AccountGlyph className="h-6 w-6" />}
             iconClassName="bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
-            title={t('home.actions.addAccount')}
-            description={t('home.actions.addAccountDesc')}
+            title={t("home.actions.addAccount")}
+            description={t("home.actions.addAccountDesc")}
           />
           <ActionCard
             to="/search"
             icon={<SearchGlyph className="h-6 w-6" />}
             iconClassName="bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-400"
-            title={t('home.actions.searchApps')}
-            description={t('home.actions.searchAppsDesc')}
+            title={t("home.actions.searchApps")}
+            description={t("home.actions.searchAppsDesc")}
           />
           <ActionCard
             to="/downloads"
             icon={<DownloadGlyph className="h-6 w-6" />}
             iconClassName="bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-400"
-            title={t('home.actions.viewDownloads')}
-            description={t('home.actions.viewDownloadsDesc')}
+            title={t("home.actions.viewDownloads")}
+            description={t("home.actions.viewDownloadsDesc")}
           />
         </section>
       </div>

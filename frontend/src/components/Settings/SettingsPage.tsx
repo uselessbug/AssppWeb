@@ -167,7 +167,10 @@ export default function SettingsPage() {
           <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             {t("settings.language.title")}
           </h2>
-          <label htmlFor="language" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="language"
+            className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
             {t("settings.language.label")}
           </label>
           <select
@@ -206,23 +209,56 @@ export default function SettingsPage() {
                   {t("settings.server.configuration")}
                 </h3>
                 <dl className="min-w-0 divide-y divide-gray-100 border-y border-gray-100 dark:divide-gray-800 dark:border-gray-800">
-                  <SettingsInfoRow label="PORT" mono>{serverInfo.port}</SettingsInfoRow>
-                  <SettingsInfoRow label="DATA_DIR" mono valueTitle={serverInfo.dataDir}>{serverInfo.dataDir}</SettingsInfoRow>
-                  <SettingsInfoRow label="PUBLIC_BASE_URL" mono valueTitle={serverInfo.publicBaseUrl || undefined}>
-                    {serverInfo.publicBaseUrl || <span className="italic text-gray-400 dark:text-gray-500">{t("settings.server.notSet")}</span>}
+                  <SettingsInfoRow label="PORT" mono>
+                    {serverInfo.port}
                   </SettingsInfoRow>
-                  <SettingsInfoRow label="UNSAFE_DANGEROUSLY_DISABLE_HTTPS_REDIRECT" mono>
-                    {serverInfo.disableHttpsRedirect ? t("settings.server.enabled") : t("settings.server.disabled")}
+                  <SettingsInfoRow
+                    label="DATA_DIR"
+                    mono
+                    valueTitle={serverInfo.dataDir}
+                  >
+                    {serverInfo.dataDir}
                   </SettingsInfoRow>
-                  <SettingsInfoRow label="AUTO_CLEANUP_DAYS" mono>{serverInfo.autoCleanupDays || t("settings.server.disabled")}</SettingsInfoRow>
-                  <SettingsInfoRow label="AUTO_CLEANUP_MAX_MB" mono>{serverInfo.autoCleanupMaxMB || t("settings.server.disabled")}</SettingsInfoRow>
-                  <SettingsInfoRow label="MAX_DOWNLOAD_MB" mono>{serverInfo.maxDownloadMB || t("settings.server.disabled")}</SettingsInfoRow>
-                  <SettingsInfoRow label="DOWNLOAD_THREADS" mono>{serverInfo.downloadThreads ?? 8}</SettingsInfoRow>
+                  <SettingsInfoRow
+                    label="PUBLIC_BASE_URL"
+                    mono
+                    valueTitle={serverInfo.publicBaseUrl || undefined}
+                  >
+                    {serverInfo.publicBaseUrl || (
+                      <span className="italic text-gray-400 dark:text-gray-500">
+                        {t("settings.server.notSet")}
+                      </span>
+                    )}
+                  </SettingsInfoRow>
+                  <SettingsInfoRow
+                    label="UNSAFE_DANGEROUSLY_DISABLE_HTTPS_REDIRECT"
+                    mono
+                  >
+                    {serverInfo.disableHttpsRedirect
+                      ? t("settings.server.enabled")
+                      : t("settings.server.disabled")}
+                  </SettingsInfoRow>
+                  <SettingsInfoRow label="AUTO_CLEANUP_DAYS" mono>
+                    {serverInfo.autoCleanupDays ||
+                      t("settings.server.disabled")}
+                  </SettingsInfoRow>
+                  <SettingsInfoRow label="AUTO_CLEANUP_MAX_MB" mono>
+                    {serverInfo.autoCleanupMaxMB ||
+                      t("settings.server.disabled")}
+                  </SettingsInfoRow>
+                  <SettingsInfoRow label="MAX_DOWNLOAD_MB" mono>
+                    {serverInfo.maxDownloadMB || t("settings.server.disabled")}
+                  </SettingsInfoRow>
+                  <SettingsInfoRow label="DOWNLOAD_THREADS" mono>
+                    {serverInfo.downloadThreads ?? 8}
+                  </SettingsInfoRow>
                 </dl>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t("settings.server.offline")}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {t("settings.server.offline")}
+            </p>
           )}
         </section>
 
@@ -234,15 +270,30 @@ export default function SettingsPage() {
             {t("settings.data.description")}
           </p>
           <div className="mb-6 grid w-full min-w-0 grid-cols-2 gap-3 sm:max-w-sm">
-            <button onClick={() => setExportModalOpen(true)} className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-blue-50 px-3 py-2 text-center text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-100 sm:px-4 dark:bg-blue-950/60 dark:text-blue-400 dark:hover:bg-blue-950">
+            <button
+              onClick={() => setExportModalOpen(true)}
+              className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-blue-50 px-3 py-2 text-center text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-100 sm:px-4 dark:bg-blue-950/60 dark:text-blue-400 dark:hover:bg-blue-950"
+            >
               {t("settings.data.exportBtn")}
             </button>
-            <button onClick={() => fileInputRef.current?.click()} className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-green-50 px-3 py-2 text-center text-sm font-semibold text-green-700 transition-colors hover:bg-green-100 sm:px-4 dark:bg-green-950/60 dark:text-green-400 dark:hover:bg-green-950">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-green-50 px-3 py-2 text-center text-sm font-semibold text-green-700 transition-colors hover:bg-green-100 sm:px-4 dark:bg-green-950/60 dark:text-green-400 dark:hover:bg-green-950"
+            >
               {t("settings.data.importBtn")}
             </button>
-            <input type="file" ref={fileInputRef} className="hidden" accept=".enc" onChange={handleFileSelect} />
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept=".enc"
+              onChange={handleFileSelect}
+            />
           </div>
-          <button onClick={() => setShowClearModal(true)} className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-red-50 px-4 py-2 text-center text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 sm:w-auto dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/70">
+          <button
+            onClick={() => setShowClearModal(true)}
+            className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-red-50 px-4 py-2 text-center text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 sm:w-auto dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/70"
+          >
             {t("settings.data.button")}
           </button>
         </section>
@@ -256,55 +307,142 @@ export default function SettingsPage() {
           </p>
           {serverInfo && (
             <dl className="mt-3 min-w-0 divide-y divide-gray-100 dark:divide-gray-800">
-              {serverInfo.buildCommit && serverInfo.buildCommit !== "unknown" && (
-                <SettingsInfoRow label={t("settings.about.buildCommit")} mono compact valueTitle={serverInfo.buildCommit}>{serverInfo.buildCommit}</SettingsInfoRow>
-              )}
+              {serverInfo.buildCommit &&
+                serverInfo.buildCommit !== "unknown" && (
+                  <SettingsInfoRow
+                    label={t("settings.about.buildCommit")}
+                    mono
+                    compact
+                    valueTitle={serverInfo.buildCommit}
+                  >
+                    {serverInfo.buildCommit}
+                  </SettingsInfoRow>
+                )}
               {serverInfo.buildDate && serverInfo.buildDate !== "unknown" && (
-                <SettingsInfoRow label={t("settings.about.buildDate")} compact valueTitle={serverInfo.buildDate}>{new Date(serverInfo.buildDate).toLocaleString()}</SettingsInfoRow>
+                <SettingsInfoRow
+                  label={t("settings.about.buildDate")}
+                  compact
+                  valueTitle={serverInfo.buildDate}
+                >
+                  {new Date(serverInfo.buildDate).toLocaleString()}
+                </SettingsInfoRow>
               )}
             </dl>
           )}
         </section>
       </div>
 
-      <Modal open={exportModalOpen} onClose={() => setExportModalOpen(false)} title={t("settings.data.exportBtn")}>
+      <Modal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title={t("settings.data.exportBtn")}
+      >
         <div className="min-w-0 space-y-4">
           <div className="min-w-0">
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">{t("settings.data.passwordPrompt")}</label>
-            <input type="password" value={exportPassword} onChange={(e) => setExportPassword(e.target.value)} className={modalFieldClass} />
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t("settings.data.passwordPrompt")}
+            </label>
+            <input
+              type="password"
+              value={exportPassword}
+              onChange={(e) => setExportPassword(e.target.value)}
+              className={modalFieldClass}
+            />
           </div>
           <div className="min-w-0">
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">{t("settings.data.passwordConfirm")}</label>
-            <input type="password" value={exportConfirmPassword} onChange={(e) => setExportConfirmPassword(e.target.value)} className={modalFieldClass} />
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t("settings.data.passwordConfirm")}
+            </label>
+            <input
+              type="password"
+              value={exportConfirmPassword}
+              onChange={(e) => setExportConfirmPassword(e.target.value)}
+              className={modalFieldClass}
+            />
           </div>
         </div>
         <div className="mt-6 flex min-w-0 flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
-          <button onClick={() => setExportModalOpen(false)} className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 sm:w-auto dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{t("settings.data.cancel")}</button>
-          <button onClick={handleExport} disabled={!exportPassword || !exportConfirmPassword} className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">{t("settings.data.confirmBtn")}</button>
+          <button
+            onClick={() => setExportModalOpen(false)}
+            className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 sm:w-auto dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            {t("settings.data.cancel")}
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={!exportPassword || !exportConfirmPassword}
+            className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            {t("settings.data.confirmBtn")}
+          </button>
         </div>
       </Modal>
 
-      <Modal open={importModalOpen} onClose={() => setImportModalOpen(false)} title={t("settings.data.importBtn")}>
+      <Modal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        title={t("settings.data.importBtn")}
+      >
         <div className="min-w-0 space-y-4">
           <div className="min-w-0">
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">{t("settings.data.passwordPrompt")}</label>
-            <input type="password" value={importPassword} onChange={(e) => setImportPassword(e.target.value)} className={modalFieldClass} />
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t("settings.data.passwordPrompt")}
+            </label>
+            <input
+              type="password"
+              value={importPassword}
+              onChange={(e) => setImportPassword(e.target.value)}
+              className={modalFieldClass}
+            />
           </div>
         </div>
         <div className="mt-6 flex min-w-0 flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
-          <button onClick={() => setImportModalOpen(false)} className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 sm:w-auto dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{t("settings.data.cancel")}</button>
-          <button onClick={handleImport} disabled={!importPassword} className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">{t("settings.data.confirmBtn")}</button>
+          <button
+            onClick={() => setImportModalOpen(false)}
+            className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 sm:w-auto dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            {t("settings.data.cancel")}
+          </button>
+          <button
+            onClick={handleImport}
+            disabled={!importPassword}
+            className="min-h-11 min-w-0 whitespace-normal break-words rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            {t("settings.data.confirmBtn")}
+          </button>
         </div>
       </Modal>
 
-      <Modal open={conflictModalOpen} onClose={() => setConflictModalOpen(false)} title={t("settings.data.conflictTitle")}>
+      <Modal
+        open={conflictModalOpen}
+        onClose={() => setConflictModalOpen(false)}
+        title={t("settings.data.conflictTitle")}
+      >
         <p className="mb-6 min-w-0 break-words text-sm leading-6 text-gray-700 dark:text-gray-300">
-          {t("settings.data.conflictDesc", { conflict: conflictStats.conflict, new: conflictStats.new })}
+          {t("settings.data.conflictDesc", {
+            conflict: conflictStats.conflict,
+            new: conflictStats.new,
+          })}
         </p>
         <div className="flex min-w-0 flex-col gap-3">
-          <button onClick={() => handleResolveConflict(true)} className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700">{t("settings.data.conflictOverwrite")}</button>
-          <button onClick={() => handleResolveConflict(false)} className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{t("settings.data.conflictSkip")}</button>
-          <button onClick={() => setConflictModalOpen(false)} className="mt-2 min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{t("settings.data.cancel")}</button>
+          <button
+            onClick={() => handleResolveConflict(true)}
+            className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
+          >
+            {t("settings.data.conflictOverwrite")}
+          </button>
+          <button
+            onClick={() => handleResolveConflict(false)}
+            className="min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            {t("settings.data.conflictSkip")}
+          </button>
+          <button
+            onClick={() => setConflictModalOpen(false)}
+            className="mt-2 min-h-11 w-full min-w-0 whitespace-normal break-words rounded-full bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            {t("settings.data.cancel")}
+          </button>
         </div>
       </Modal>
 
@@ -321,7 +459,13 @@ export default function SettingsPage() {
   );
 }
 
-function SettingsInfoRow({ label, children, mono = false, compact = false, valueTitle }: {
+function SettingsInfoRow({
+  label,
+  children,
+  mono = false,
+  compact = false,
+  valueTitle,
+}: {
   label: string;
   children: ReactNode;
   mono?: boolean;
@@ -331,8 +475,17 @@ function SettingsInfoRow({ label, children, mono = false, compact = false, value
   const size = compact ? "text-xs" : "text-sm";
   return (
     <div className="grid min-w-0 grid-cols-1 gap-1 py-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] sm:items-start sm:gap-6">
-      <dt className={`${size} min-w-0 break-all font-medium text-gray-500 dark:text-gray-400`}>{label}</dt>
-      <dd title={valueTitle} className={`${size} min-w-0 max-w-full whitespace-pre-wrap break-all text-gray-900 sm:text-right dark:text-gray-200 ${mono ? "font-mono" : ""}`}>{children}</dd>
+      <dt
+        className={`${size} min-w-0 break-all font-medium text-gray-500 dark:text-gray-400`}
+      >
+        {label}
+      </dt>
+      <dd
+        title={valueTitle}
+        className={`${size} min-w-0 max-w-full whitespace-pre-wrap break-all text-gray-900 sm:text-right dark:text-gray-200 ${mono ? "font-mono" : ""}`}
+      >
+        {children}
+      </dd>
     </div>
   );
 }

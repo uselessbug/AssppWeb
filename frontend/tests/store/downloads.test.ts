@@ -266,9 +266,9 @@ describe("downloads store", () => {
         deletedIds: ["task-1"],
         failedIds: ["task-2"],
       });
-      expect(useDownloadsStore.getState().tasks.map((task) => task.id)).toEqual([
-        "task-2",
-      ]);
+      expect(useDownloadsStore.getState().tasks.map((task) => task.id)).toEqual(
+        ["task-2"],
+      );
     });
 
     it("reconciles a failed delete with the authoritative server list", async () => {

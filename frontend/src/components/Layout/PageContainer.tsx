@@ -1,6 +1,6 @@
-import { useEffect, type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
-import { useSearch } from '../../hooks/useSearch';
+import { useEffect, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
+import { useSearch } from "../../hooks/useSearch";
 
 interface PageContainerProps {
   title?: string;
@@ -18,7 +18,7 @@ export default function PageContainer({
 
   // 监听路由变化，如果当前路径不在 /search 下，则清空之前的搜索内容
   useEffect(() => {
-    if (!location.pathname.startsWith('/search')) {
+    if (!location.pathname.startsWith("/search")) {
       clearSearch();
     }
   }, [location.pathname, clearSearch]);

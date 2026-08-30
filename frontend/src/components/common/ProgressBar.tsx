@@ -6,7 +6,7 @@ interface ProgressBarProps {
 
 export default function ProgressBar({
   progress,
-  className = '',
+  className = "",
   label,
 }: ProgressBarProps) {
   const normalized = Number.isFinite(progress) ? progress : 0;

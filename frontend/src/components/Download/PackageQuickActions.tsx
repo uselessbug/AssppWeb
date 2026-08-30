@@ -1,41 +1,39 @@
-import { type MouseEvent } from 'react';
-import { useTranslation } from 'react-i18next';
-import { QRCodeSVG } from 'qrcode.react';
-import { isPreviewDownloadTask } from './previewTasks';
-import { useToastStore } from '../../store/toast';
-import { authHeaders } from '../../api/client';
-import { getInstallInfo } from '../../api/install';
-import type { DownloadTask } from '../../types';
+import { type MouseEvent } from "react";
+import { useTranslation } from "react-i18next";
+import { QRCodeSVG } from "qrcode.react";
+import { isPreviewDownloadTask } from "./previewTasks";
+import { useToastStore } from "../../store/toast";
+import { authHeaders } from "../../api/client";
+import { getInstallInfo } from "../../api/install";
+import type { DownloadTask } from "../../types";
 
 interface PackageQuickActionsProps {
   task: DownloadTask;
-  size?: 'compact' | 'default';
+  size?: "compact" | "default";
 }
 
-const iconClassName = 'h-4 w-4 shrink-0';
+const iconClassName = "h-4 w-4 shrink-0";
 
 export default function PackageQuickActions({
   task,
-  size = 'default',
+  size = "default",
 }: PackageQuickActionsProps) {
   const { t } = useTranslation();
   const addToast = useToastStore((state) => state.addToast);
 
-  if (task.status !== 'completed' || !task.hasFile) return null;
+  if (task.status !== "completed" || !task.hasFile) return null;
 
   const installInfo = getInstallInfo(task.id);
   const isPreview = isPreviewDownloadTask(task);
   const buttonSize =
-    size === 'compact'
-      ? 'min-h-10 px-2 text-xs'
-      : 'min-h-11 px-3 text-sm';
+    size === "compact" ? "min-h-10 px-2 text-xs" : "min-h-11 px-3 text-sm";
   const secondaryButton = `${buttonSize} inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full bg-gray-100 font-semibold text-gray-700 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700`;
 
   function showPreviewNotice() {
     addToast(
-      t('downloads.preview.actionHint'),
-      'info',
-      t('downloads.preview.badge'),
+      t("downloads.preview.actionHint"),
+      "info",
+      t("downloads.preview.badge"),
     );
   }
 
@@ -46,11 +44,7 @@ export default function PackageQuickActions({
       return;
     }
 
-    addToast(
-      task.software.name,
-      'info',
-      t('toast.title.installStarted'),
-    );
+    addToast(task.software.name, "info", t("toast.title.installStarted"));
   }
 
   async function handleShare() {
@@ -62,9 +56,9 @@ export default function PackageQuickActions({
     try {
       await copyText(installInfo.installUrl);
       addToast(
-        t('downloads.package.copied'),
-        'success',
-        t('toast.title.shareAcquired'),
+        t("downloads.package.copied"),
+        "success",
+        t("toast.title.shareAcquired"),
       );
 
       if (navigator.share) {
@@ -74,11 +68,11 @@ export default function PackageQuickActions({
         });
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (error instanceof DOMException && error.name === "AbortError") return;
       addToast(
-        t('downloads.package.shareFailed'),
-        'error',
-        t('downloads.package.share'),
+        t("downloads.package.shareFailed"),
+        "error",
+        t("downloads.package.share"),
       );
     }
   }
@@ -89,22 +83,18 @@ export default function PackageQuickActions({
       return;
     }
 
-    addToast(
-      task.software.name,
-      'info',
-      t('toast.title.downloadIpaStarted'),
-    );
+    addToast(task.software.name, "info", t("toast.title.downloadIpaStarted"));
 
     try {
       const params = new URLSearchParams({ accountHash: task.accountHash });
       const response = await fetch(`/api/packages/${task.id}/file?${params}`, {
         headers: authHeaders(),
       });
-      if (!response.ok) throw new Error('Download failed');
+      if (!response.ok) throw new Error("Download failed");
 
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
+      const anchor = document.createElement("a");
       anchor.href = blobUrl;
       anchor.download = packageFileName(task);
       document.body.appendChild(anchor);
@@ -113,9 +103,9 @@ export default function PackageQuickActions({
       URL.revokeObjectURL(blobUrl);
     } catch {
       addToast(
-        t('downloads.package.downloadFailed'),
-        'error',
-        t('downloads.package.downloadIpa'),
+        t("downloads.package.downloadFailed"),
+        "error",
+        t("downloads.package.downloadIpa"),
       );
     }
   }
@@ -123,17 +113,17 @@ export default function PackageQuickActions({
   return (
     <div
       className="grid min-w-0 grid-cols-3 gap-2"
-      aria-label={t('downloads.package.quickActions')}
+      aria-label={t("downloads.package.quickActions")}
       data-testid="package-quick-actions"
     >
       <a
         href={installInfo.installUrl}
         onClick={handleInstall}
         className={`${buttonSize} inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full bg-blue-600 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900`}
-        aria-label={t('downloads.package.install')}
+        aria-label={t("downloads.package.install")}
       >
         <InstallIcon />
-        <span className="truncate">{t('downloads.package.installShort')}</span>
+        <span className="truncate">{t("downloads.package.installShort")}</span>
       </a>
 
       <div className="group relative min-w-0">
@@ -142,10 +132,10 @@ export default function PackageQuickActions({
           onClick={handleShare}
           aria-describedby={isPreview ? undefined : `install-qr-${task.id}`}
           className={`${secondaryButton} w-full`}
-          aria-label={t('downloads.package.share')}
+          aria-label={t("downloads.package.share")}
         >
           <ShareIcon />
-          <span className="truncate">{t('downloads.package.share')}</span>
+          <span className="truncate">{t("downloads.package.share")}</span>
         </button>
         {!isPreview && (
           <div
@@ -160,7 +150,7 @@ export default function PackageQuickActions({
                 className="mb-1 rounded bg-white p-1"
               />
               <span className="mt-1 whitespace-nowrap text-xs">
-                {t('downloads.package.scan')}
+                {t("downloads.package.scan")}
               </span>
               <span className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" />
             </div>
@@ -172,10 +162,10 @@ export default function PackageQuickActions({
         type="button"
         onClick={handleDownload}
         className={secondaryButton}
-        aria-label={t('downloads.package.downloadIpa')}
+        aria-label={t("downloads.package.downloadIpa")}
       >
         <DownloadIcon />
-        <span className="truncate">{t('downloads.package.downloadShort')}</span>
+        <span className="truncate">{t("downloads.package.downloadShort")}</span>
       </button>
     </div>
   );
@@ -187,20 +177,20 @@ async function copyText(value: string) {
     return;
   }
 
-  const textArea = document.createElement('textarea');
+  const textArea = document.createElement("textarea");
   textArea.value = value;
-  textArea.style.position = 'fixed';
-  textArea.style.left = '-999999px';
+  textArea.style.position = "fixed";
+  textArea.style.left = "-999999px";
   document.body.appendChild(textArea);
   textArea.focus();
   textArea.select();
-  document.execCommand('copy');
+  document.execCommand("copy");
   textArea.remove();
 }
 
 function packageFileName(task: DownloadTask): string {
   const unsafeName = `${task.software.name}_${task.software.version}`;
-  const safeName = unsafeName.replace(/[\\/:*?"<>|]/g, '-');
+  const safeName = unsafeName.replace(/[\\/:*?"<>|]/g, "-");
   return `${safeName}.ipa`;
 }
 

@@ -10,10 +10,7 @@ import EmptyState from "../common/EmptyState";
 import LoadingState from "../common/LoadingState";
 import { SearchIcon } from "../common/icons";
 import DownloadItem from "./DownloadItem";
-import {
-  isDownloadPreviewEnabled,
-  previewDownloadTasks,
-} from "./previewTasks";
+import { isDownloadPreviewEnabled, previewDownloadTasks } from "./previewTasks";
 import { useDownloads } from "../../hooks/useDownloads";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
@@ -142,7 +139,8 @@ export default function DownloadList() {
       task.status === "pending",
   ).length;
   const allVisibleSelected =
-    sortedTasks.length > 0 && sortedTasks.every((task) => selectedIds.has(task.id));
+    sortedTasks.length > 0 &&
+    sortedTasks.every((task) => selectedIds.has(task.id));
 
   const showPreviewNotice = useCallback(() => {
     addToast(
@@ -223,7 +221,9 @@ export default function DownloadList() {
 
       if (result.deletedIds.length > 0) {
         addToast(
-          t("downloads.batchDeleteSuccess", { count: result.deletedIds.length }),
+          t("downloads.batchDeleteSuccess", {
+            count: result.deletedIds.length,
+          }),
           "success",
           t("toast.title.deleteSuccess"),
         );

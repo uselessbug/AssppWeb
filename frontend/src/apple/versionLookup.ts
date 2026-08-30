@@ -99,9 +99,12 @@ export async function getVersionMetadata(
     // Historical App Store response metadata can be stale. Use the selected
     // IPA itself as the source of truth and only fetch the ZIP ranges needed
     // for Payload/*.app/Info.plist on the backend.
-    const metadata = await apiPost<RemoteVersionMetadata>("/api/version-metadata", {
-      downloadURL,
-    });
+    const metadata = await apiPost<RemoteVersionMetadata>(
+      "/api/version-metadata",
+      {
+        downloadURL,
+      },
+    );
 
     return {
       metadata,
