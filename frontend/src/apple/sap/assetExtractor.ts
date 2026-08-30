@@ -1,4 +1,8 @@
 import { initLibcurl, libcurl } from "../libcurl-init";
+import {
+  readCachedAppleSapAssets,
+  writeCachedAppleSapAssets,
+} from "./assetCache";
 import { inspectAppleSapPackage } from "./assets";
 import { Bzip2NeedMoreData, decodeBzip2Block } from "./bzip2";
 import {
@@ -17,9 +21,62 @@ export interface AppleSapExtractionResult {
   compressedBytesRead: number;
   decompressedBytesRead: number;
   blocksDecoded: number;
+  source?: "memory" | "indexeddb" | "network";
 }
 
-export async function extractAppleSapAssets(): Promise<AppleSapExtractionResult> {
+let memoryBundle: AppleSapAssetBundle | undefined;
+let extractionPromise: Promise<AppleSapExtractionResult> | undefined;
+
+export function extractAppleSapAssets(): Promise<AppleSapExtractionResult> {
+  if (memoryBundle) {
+    return Promise.resolve({
+      bundle: memoryBundle,
+      compressedBytesRead: 0,
+      decompressedBytesRead: 0,
+      blocksDecoded: 0,
+      source: "memory",
+    });
+  }
+
+  if (!extractionPromise) {
+    extractionPromise = extractAppleSapAssetsCached().finally(() => {
+      extractionPromise = undefined;
+    });
+  }
+
+  return extractionPromise;
+}
+
+async function extractAppleSapAssetsCached(): Promise<AppleSapExtractionResult> {
+  try {
+    const cached = await readCachedAppleSapAssets();
+    if (cached) {
+      memoryBundle = cached;
+      return {
+        bundle: cached,
+        compressedBytesRead: 0,
+        decompressedBytesRead: 0,
+        blocksDecoded: 0,
+        source: "indexeddb",
+      };
+    }
+  } catch (error) {
+    console.warn("Failed to read Apple SAP asset cache", error);
+  }
+
+  const result = await extractAppleSapAssetsFromNetwork();
+  memoryBundle = result.bundle;
+
+  try {
+    await writeCachedAppleSapAssets(result.bundle);
+  } catch (error) {
+    console.warn("Failed to persist verified Apple SAP assets", error);
+  }
+
+  return { ...result, source: "network" };
+}
+
+async function extractAppleSapAssetsFromNetwork(): Promise<AppleSapExtractionResult> {
   const probe = await inspectAppleSapPackage();
   const payloadEnd = probe.payloadOffset + probe.payloadLength;
   if (!Number.isSafeInteger(payloadEnd) || probe.bzipStreamOffset >= payloadEnd) {
@@ -142,6 +199,7 @@ export async function extractAppleSapAssets(): Promise<AppleSapExtractionResult>
     compressedBytesRead,
     decompressedBytesRead,
     blocksDecoded,
+    source: "network",
   };
 }
 
