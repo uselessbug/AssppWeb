@@ -25,6 +25,8 @@ const SAP_SHIM_SIZE = 0x00100000;
 const SAP_EXECUTION_TIMEOUT_MS = 10_000;
 const SAP_MAX_OUTPUT_SIZE = 16 << 20;
 const UINT32_MAX = 0xffffffff;
+const UINT64_MASK = (1n << 64n) - 1n;
+const SIGN_BIT_64 = 1n << 63n;
 const MAX_SOFTWARE_DISPATCH_RESUMES = 100_000;
 const COMMERCE_KIT_SIGN_DISPATCH_ADDRESS = SAP_KIT_BASE + 0x126777;
 const COMMERCE_KIT_SIGN_TABLE_BASE = SAP_KIT_BASE + 0x167804;
@@ -32,11 +34,16 @@ const COMMERCE_KIT_SIGN_DISPATCH_BYTES = new Uint8Array([
   0x48, 0x8d, 0x0d, 0x86, 0x10, 0x04, 0x00, 0x48,
   0x63, 0x04, 0x81, 0x48, 0x01, 0xc8, 0xff, 0xe0,
 ]);
-const SAP_SIGN_ADD_TRAMPOLINE = SAP_RETURN_ADDRESS + 0x100;
-const SAP_SIGN_ADD_TRAMPOLINE_BYTES = new Uint8Array([
-  0x48, 0x01, 0xc8,
-  0xe9, 0xf8, 0xfe, 0xff, 0xff,
-]);
+
+const RFLAGS_CF = 1n << 0n;
+const RFLAGS_PF = 1n << 2n;
+const RFLAGS_AF = 1n << 4n;
+const RFLAGS_ZF = 1n << 6n;
+const RFLAGS_SF = 1n << 7n;
+const RFLAGS_OF = 1n << 11n;
+const RFLAGS_ARITHMETIC_MASK =
+  RFLAGS_CF | RFLAGS_PF | RFLAGS_AF | RFLAGS_ZF | RFLAGS_SF | RFLAGS_OF;
+
 const CORE_FP_EXPORT_NAMES = [
   "_WIn9UJ86JKdV4dM",
   "_X46O5IeS",
@@ -59,6 +66,7 @@ interface SoftwareDispatchResume {
   tableEntryAddress: number;
   tableOffset: number;
   target: number;
+  rflags: bigint;
 }
 
 export interface BrowserSapLinkSummary {
@@ -473,7 +481,7 @@ export class BrowserSapMachine {
           throw new Error("SAP sign software dispatch exceeded safety limit");
         }
 
-        const resume = this.executeSignDispatchTrampoline();
+        const resume = this.emulateSignDispatch();
         this.softwareDispatchTrace = describeSoftwareDispatch(resume);
         beginAddress = resume.target;
       }
@@ -505,7 +513,7 @@ export class BrowserSapMachine {
     return this.engine.regRead("rax");
   }
 
-  private executeSignDispatchTrampoline(): SoftwareDispatchResume {
+  private emulateSignDispatch(): SoftwareDispatchResume {
     const actual = this.engine.memRead(
       COMMERCE_KIT_SIGN_DISPATCH_ADDRESS,
       COMMERCE_KIT_SIGN_DISPATCH_BYTES.length,
@@ -533,6 +541,7 @@ export class BrowserSapMachine {
         `CommerceKit sign jump-table entry 0x${tableEntryAddressBig.toString(16)} is outside the safe CommerceKit range`,
       );
     }
+
     const tableEntryAddress = Number(tableEntryAddressBig);
     const entry = this.engine.memRead(tableEntryAddress, 4);
     const tableOffset = new DataView(
@@ -540,36 +549,16 @@ export class BrowserSapMachine {
       entry.byteOffset,
       entry.byteLength,
     ).getInt32(0, true);
-    const expectedTargetBig =
+
+    const left = BigInt.asUintN(64, BigInt(tableOffset));
+    const right = BigInt(COMMERCE_KIT_SIGN_TABLE_BASE);
+    const result = (left + right) & UINT64_MASK;
+    const targetBig =
       BigInt(COMMERCE_KIT_SIGN_TABLE_BASE) + BigInt(tableOffset);
 
-    // LEA and MOVSXD do not modify flags, so reproduce those effects directly.
-    // Let Unicorn execute only ADD RAX, RCX in an isolated direct-jump
-    // trampoline. This preserves the exact x86 RFLAGS while avoiding the
-    // problematic indirect JMP translation in the original CommerceKit block.
-    this.engine.regWrite("rcx", BigInt(COMMERCE_KIT_SIGN_TABLE_BASE));
-    this.engine.regWrite("rax", BigInt.asUintN(64, BigInt(tableOffset)));
-    this.engine.startBrowserSafe(SAP_SIGN_ADD_TRAMPOLINE, SAP_RETURN_ADDRESS);
-
-    if (this.timeoutError) throw this.timeoutError;
-    const trampolineInstruction = this.engine.regRead("rip");
-    if (trampolineInstruction !== BigInt(SAP_RETURN_ADDRESS)) {
+    if (result !== targetBig) {
       throw new Error(
-        `SAP sign ADD trampoline stopped at 0x${trampolineInstruction.toString(16)}, expected return sentinel 0x${SAP_RETURN_ADDRESS.toString(16)}`,
-      );
-    }
-
-    const tableBase = this.engine.regRead("rcx");
-    if (tableBase !== BigInt(COMMERCE_KIT_SIGN_TABLE_BASE)) {
-      throw new Error(
-        `SAP sign ADD trampoline produced RCX=0x${tableBase.toString(16)}, expected 0x${COMMERCE_KIT_SIGN_TABLE_BASE.toString(16)}`,
-      );
-    }
-
-    const targetBig = this.engine.regRead("rax");
-    if (targetBig !== expectedTargetBig) {
-      throw new Error(
-        `SAP sign ADD trampoline produced target 0x${targetBig.toString(16)}, expected 0x${expectedTargetBig.toString(16)}`,
+        `CommerceKit sign dispatch wrapped target 0x${result.toString(16)}, expected 0x${targetBig.toString(16)}`,
       );
     }
     if (
@@ -582,11 +571,22 @@ export class BrowserSapMachine {
       );
     }
 
+    const oldFlags = this.engine.regRead("rflags");
+    const arithmeticFlags = add64Flags(left, right, result);
+    const newFlags =
+      (oldFlags & ~RFLAGS_ARITHMETIC_MASK) | arithmeticFlags;
+
+    this.engine.regWrite("rcx", right);
+    this.engine.regWrite("rax", result);
+    this.engine.regWrite("rflags", newFlags);
+    this.engine.regWrite("rip", result);
+
     return {
       index,
       tableEntryAddress,
       tableOffset,
       target: Number(targetBig),
+      rflags: newFlags,
     };
   }
 
@@ -691,7 +691,6 @@ function createBaseEngine(module: UnicornX86Module): BrowserUnicornEngine {
     engine.memMap(SAP_STACK_BASE, SAP_STACK_SIZE);
 
     engine.memWrite(SAP_RETURN_ADDRESS, new Uint8Array([0xf4]));
-    engine.memWrite(SAP_SIGN_ADD_TRAMPOLINE, SAP_SIGN_ADD_TRAMPOLINE_BYTES);
     return engine;
   } catch (error) {
     engine.close();
@@ -708,6 +707,30 @@ function createHardwareBlock(hardwareId: Uint8Array): Uint8Array {
   new DataView(hardware.buffer).setUint32(0, hardwareId.length, true);
   hardware.set(hardwareId, 4);
   return hardware;
+}
+
+function add64Flags(left: bigint, right: bigint, result: bigint): bigint {
+  let flags = 0n;
+
+  if (left + right > UINT64_MASK) flags |= RFLAGS_CF;
+  if ((result & 0xffn) === 0n || hasEvenParity(Number(result & 0xffn))) {
+    if (hasEvenParity(Number(result & 0xffn))) flags |= RFLAGS_PF;
+  }
+  if (((left ^ right ^ result) & 0x10n) !== 0n) flags |= RFLAGS_AF;
+  if (result === 0n) flags |= RFLAGS_ZF;
+  if ((result & SIGN_BIT_64) !== 0n) flags |= RFLAGS_SF;
+  if (((~(left ^ right) & (left ^ result)) & SIGN_BIT_64) !== 0n) {
+    flags |= RFLAGS_OF;
+  }
+
+  return flags;
+}
+
+function hasEvenParity(value: number): boolean {
+  let bits = value & 0xff;
+  bits ^= bits >> 4;
+  bits &= 0x0f;
+  return ((0x6996 >> bits) & 1) === 0;
 }
 
 function bigintToSafeNumber(value: bigint, label: string): number {
@@ -737,7 +760,7 @@ function describeGuestBlock(address: number | undefined, size: number): string {
 }
 
 function describeSoftwareDispatch(resume: SoftwareDispatchResume): string {
-  return `index=0x${resume.index.toString(16)},entry=0x${resume.tableEntryAddress.toString(16)},offset=${formatSignedHex(resume.tableOffset)},target=0x${resume.target.toString(16)}`;
+  return `index=0x${resume.index.toString(16)},entry=0x${resume.tableEntryAddress.toString(16)},offset=${formatSignedHex(resume.tableOffset)},target=0x${resume.target.toString(16)},rflags=0x${resume.rflags.toString(16)}`;
 }
 
 function formatSignedHex(value: number): string {
