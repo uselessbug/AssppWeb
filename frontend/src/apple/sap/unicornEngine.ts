@@ -99,24 +99,17 @@ export class BrowserUnicornEngine {
     return this.addHook(this.module.HOOK_BLOCK, handler);
   }
 
-  startBounded(
-    begin: number,
-    until: number,
-    instructionCount = 100_000_000,
-  ) {
+  startBrowserSafe(begin: number, until: number) {
     this.assertOpen();
     this.assertSafeRange(begin, 0);
     this.assertSafeRange(until, 0);
-    if (!Number.isSafeInteger(instructionCount) || instructionCount <= 0) {
-      throw new Error("SAP Unicorn instruction limit must be a positive safe integer");
-    }
 
-    // Unicorn implements a non-zero timeout by creating a QEMU timer thread.
-    // The browser/TCI build is intentionally single-threaded, so that path
-    // aborts with "qemu_thread_create: Not supported". Keep the deterministic
-    // instruction-count limit here; production wall-clock cancellation belongs
-    // outside Unicorn once SAP execution is moved into a Web Worker.
-    this.engine.emu_start(begin, until, 0, instructionCount);
+    // Both Unicorn's timeout and instruction-count limits use host-side QEMU
+    // helpers that are unsafe in the single-threaded browser/TCI build. A
+    // non-zero timeout creates a QEMU timer thread, while a non-zero count
+    // installs the native hook_count_cb function pointer. Browser execution is
+    // bounded by the JS block hook in BrowserSapMachine instead.
+    this.engine.emu_start(begin, until, 0, 0);
   }
 
   stop() {
