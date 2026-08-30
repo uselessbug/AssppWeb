@@ -3,11 +3,13 @@ import { registerBrowserSapSignerFactory } from "../sap";
 const UNICORN_VERSION = "2.1.4";
 const UNICORN_SCRIPT_URL = `https://cdn.jsdelivr.net/npm/@alexaltea/unicorn-js@${UNICORN_VERSION}/dist/unicorn_x86.js`;
 const SMOKE_ADDRESS = 0x100000;
+const SAP_HIGH_ADDRESS = 0x0000300000000000;
 const SMOKE_EXPECTED_RAX = 0x1122334455667788n;
 
 interface UnicornEngine {
   mem_map(address: number, size: number, perms: number): void;
   mem_write(address: number, bytes: Uint8Array | number[]): void;
+  mem_read(address: number, size: number): Uint8Array;
   emu_start(begin: number, until: number, timeout: number, count: number): void;
   reg_read_i64(regid: number): bigint;
   close(): void;
@@ -36,6 +38,7 @@ declare global {
 export interface UnicornSmokeResult {
   version: string;
   rax: string;
+  highAddressRoundTrip: boolean;
 }
 
 let modulePromise: Promise<UnicornX86Module> | undefined;
@@ -99,6 +102,7 @@ export async function runUnicornX64SmokeTest(
     0x11,
     0x90,
   ]);
+  const highAddressProbe = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
   const engine = new module.Unicorn(module.ARCH_X86, module.MODE_64);
 
   try {
@@ -118,9 +122,23 @@ export async function runUnicornX64SmokeTest(
       );
     }
 
+    // ipatool maps scratch/heap/stack in this address range. Exercise one of
+    // those high addresses explicitly so Safari failures in the JS-to-WASM i64
+    // bridge surface before we attempt to load any Apple Mach-O image.
+    engine.mem_map(SAP_HIGH_ADDRESS, 0x1000, module.PROT_ALL);
+    engine.mem_write(SAP_HIGH_ADDRESS, highAddressProbe);
+    const roundTrip = engine.mem_read(SAP_HIGH_ADDRESS, highAddressProbe.length);
+    const highAddressRoundTrip = roundTrip.every(
+      (value, index) => value === highAddressProbe[index],
+    );
+    if (!highAddressRoundTrip) {
+      throw new Error("Unicorn x86_64 high-address memory round trip failed");
+    }
+
     return {
       version: UNICORN_VERSION,
       rax: `0x${rax.toString(16)}`,
+      highAddressRoundTrip,
     };
   } finally {
     engine.close();
