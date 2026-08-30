@@ -122,6 +122,14 @@ export class BrowserUnicornEngine {
     this.engine.emu_stop();
   }
 
+  diagnosticStderr(): string[] {
+    return [...(this.module.__assppStderr ?? [])];
+  }
+
+  clearDiagnosticStderr() {
+    if (this.module.__assppStderr) this.module.__assppStderr.length = 0;
+  }
+
   close() {
     if (this.closed) return;
     this.closed = true;
