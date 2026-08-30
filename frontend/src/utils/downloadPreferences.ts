@@ -4,7 +4,8 @@ const DOWNLOAD_COUNTRY_KEY = "asspp-download-country";
 
 export function readDownloadCountry(): string {
   if (typeof localStorage === "undefined") return "";
-  const country = localStorage.getItem(DOWNLOAD_COUNTRY_KEY)?.trim().toUpperCase() ?? "";
+  const country =
+    localStorage.getItem(DOWNLOAD_COUNTRY_KEY)?.trim().toUpperCase() ?? "";
   return country in countryCodeMap ? country : "";
 }
 

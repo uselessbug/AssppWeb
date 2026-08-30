@@ -49,7 +49,11 @@ interface SearchState {
     param: Partial<Pick<SearchState, "term" | "country" | "entity">>,
   ) => void;
   initializeCountry: (fallbackCountry: string) => void;
-  search: (term: string, country: string, entity: SearchEntity) => Promise<void>;
+  search: (
+    term: string,
+    country: string,
+    entity: SearchEntity,
+  ) => Promise<void>;
   lookup: (bundleId: string, country: string) => Promise<void>;
   clear: () => void;
 }

@@ -1,11 +1,11 @@
 export function formatBytes(value?: number | string): string {
-  if (value === undefined || value === null || value === '') return '—';
+  if (value === undefined || value === null || value === "") return "—";
 
   const bytes = Number(value);
-  if (!Number.isFinite(bytes) || bytes < 0) return '—';
-  if (bytes === 0) return '0 B';
+  if (!Number.isFinite(bytes) || bytes < 0) return "—";
+  if (bytes === 0) return "0 B";
 
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const units = ["B", "KB", "MB", "GB", "TB"];
   const unitIndex = Math.min(
     Math.floor(Math.log(bytes) / Math.log(1024)),
     units.length - 1,

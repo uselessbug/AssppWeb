@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
@@ -39,10 +39,10 @@ function lockBackgroundScroll() {
       body.style.paddingRight = `${(Number.isFinite(currentPadding) ? currentPadding : 0) + scrollbarWidth}px`;
     }
 
-    body.style.overflow = 'hidden';
-    body.style.overscrollBehavior = 'none';
-    root.style.overflow = 'hidden';
-    root.style.overscrollBehavior = 'none';
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+    root.style.overflow = "hidden";
+    root.style.overscrollBehavior = "none";
   }
 
   scrollLockCount += 1;
@@ -89,12 +89,12 @@ export default function Modal({
     dialog?.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         event.stopPropagation();
         onCloseRef.current();
         return;
       }
-      if (event.key !== 'Tab' || !dialog) return;
+      if (event.key !== "Tab" || !dialog) return;
 
       const focusables = Array.from(
         dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
@@ -111,9 +111,9 @@ export default function Modal({
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
       unlockScroll();
       previouslyFocused?.focus();
     };
@@ -125,10 +125,10 @@ export default function Modal({
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto overscroll-contain bg-gray-950/45 backdrop-blur-sm"
       style={{
-        paddingTop: 'calc(1rem + env(safe-area-inset-top))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
-        paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
-        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+        paddingTop: "calc(1rem + env(safe-area-inset-top))",
+        paddingRight: "calc(1rem + env(safe-area-inset-right))",
+        paddingBottom: "calc(1rem + env(safe-area-inset-bottom))",
+        paddingLeft: "calc(1rem + env(safe-area-inset-left))",
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onCloseRef.current();
@@ -143,7 +143,7 @@ export default function Modal({
         className="w-full max-w-sm overflow-y-auto overscroll-contain rounded-[28px] border border-white/70 bg-white/95 p-6 text-gray-900 shadow-[0_24px_70px_-20px_rgba(15,23,42,0.45)] outline-none backdrop-blur-2xl dark:border-white/10 dark:bg-gray-900/95 dark:text-white dark:shadow-black/60"
         style={{
           maxHeight:
-            'calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+            "calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom))",
         }}
       >
         <h3 id={titleId} className="mb-4 text-lg font-semibold tracking-tight">

@@ -1,21 +1,21 @@
-import { useState } from 'react';
+import { useState } from "react";
 
 interface AppIconProps {
   url?: string;
   name: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
 }
 
 const sizeClasses = {
-  sm: 'h-10 w-10',
-  md: 'h-14 w-14',
-  lg: 'h-20 w-20',
+  sm: "h-10 w-10",
+  md: "h-14 w-14",
+  lg: "h-20 w-20",
 };
 
 const surfaceClassName =
-  'shrink-0 rounded-[22%] ring-1 ring-black/5 shadow-sm shadow-gray-950/10 dark:ring-white/10 dark:shadow-black/30';
+  "shrink-0 rounded-[22%] ring-1 ring-black/5 shadow-sm shadow-gray-950/10 dark:ring-white/10 dark:shadow-black/30";
 
-export default function AppIcon({ url, name, size = 'md' }: AppIconProps) {
+export default function AppIcon({ url, name, size = "md" }: AppIconProps) {
   const [failed, setFailed] = useState(false);
 
   if (!url || failed) {

@@ -1,5 +1,5 @@
-import { useTranslation } from 'react-i18next';
-import { NavLink } from 'react-router-dom';
+import { useTranslation } from "react-i18next";
+import { NavLink } from "react-router-dom";
 import {
   AccountsIcon,
   DownloadsIcon,
@@ -9,15 +9,15 @@ import {
   SettingsIcon,
   SunIcon,
   SystemIcon,
-} from '../common/icons';
-import { useSettingsStore } from '../../store/settings';
+} from "../common/icons";
+import { useSettingsStore } from "../../store/settings";
 
 const navItems = [
-  { to: '/', label: 'home', icon: HomeIcon },
-  { to: '/accounts', label: 'accounts', icon: AccountsIcon },
-  { to: '/search', label: 'search', icon: SearchIcon },
-  { to: '/downloads', label: 'downloads', icon: DownloadsIcon },
-  { to: '/settings', label: 'settings', icon: SettingsIcon },
+  { to: "/", label: "home", icon: HomeIcon },
+  { to: "/accounts", label: "accounts", icon: AccountsIcon },
+  { to: "/search", label: "search", icon: SearchIcon },
+  { to: "/downloads", label: "downloads", icon: DownloadsIcon },
+  { to: "/settings", label: "settings", icon: SettingsIcon },
 ];
 
 export default function Sidebar() {
@@ -43,12 +43,12 @@ export default function Sidebar() {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === '/'}
+            end={item.to === "/"}
             className={({ isActive }) =>
               `flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5 text-[15px] font-medium transition-colors ${
                 isActive
-                  ? 'bg-blue-600 text-white shadow-[0_5px_14px_rgba(0,122,255,0.22)] dark:bg-blue-500 dark:shadow-[0_5px_18px_rgba(10,132,255,0.18)]'
-                  : 'text-gray-600 hover:bg-white/80 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/75 dark:hover:text-white'
+                  ? "bg-blue-600 text-white shadow-[0_5px_14px_rgba(0,122,255,0.22)] dark:bg-blue-500 dark:shadow-[0_5px_18px_rgba(10,132,255,0.18)]"
+                  : "text-gray-600 hover:bg-white/80 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/75 dark:hover:text-white"
               }`
             }
           >
@@ -70,9 +70,9 @@ function ThemeToggle() {
   const { t } = useTranslation();
 
   const cycleTheme = () => {
-    if (theme === 'system') setTheme('light');
-    else if (theme === 'light') setTheme('dark');
-    else setTheme('system');
+    if (theme === "system") setTheme("light");
+    else if (theme === "light") setTheme("dark");
+    else setTheme("system");
   };
 
   return (
@@ -82,9 +82,9 @@ function ThemeToggle() {
       className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-gray-200/80 bg-white/60 px-3.5 py-2.5 text-sm font-medium text-gray-600 shadow-sm transition-colors hover:bg-white hover:text-gray-900 dark:border-gray-800 dark:bg-gray-800/55 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
       title={t(`theme.${theme}`)}
     >
-      {theme === 'light' && <SunIcon className="h-5 w-5" />}
-      {theme === 'dark' && <MoonIcon className="h-5 w-5" />}
-      {theme === 'system' && <SystemIcon className="h-5 w-5" />}
+      {theme === "light" && <SunIcon className="h-5 w-5" />}
+      {theme === "dark" && <MoonIcon className="h-5 w-5" />}
+      {theme === "system" && <SystemIcon className="h-5 w-5" />}
       <span>{t(`theme.${theme}`)}</span>
     </button>
   );

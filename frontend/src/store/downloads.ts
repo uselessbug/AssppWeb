@@ -245,7 +245,9 @@ export const useDownloadsStore = create<DownloadsState>((set, get) => ({
 
     const currentTasks = get().tasks;
     const requestedSet = new Set(requestedIds);
-    const selectedTasks = currentTasks.filter((task) => requestedSet.has(task.id));
+    const selectedTasks = currentTasks.filter((task) =>
+      requestedSet.has(task.id),
+    );
     const knownIds = new Set(selectedTasks.map((task) => task.id));
 
     // 本地已经不存在的目标天然满足 DELETE 的最终状态。

@@ -24,7 +24,9 @@ export const useSettingsStore = create<SettingsState>()(
         const persisted = (persistedState ?? {}) as Partial<SettingsState>;
         return {
           ...currentState,
-          theme: isTheme(persisted.theme) ? persisted.theme : currentState.theme,
+          theme: isTheme(persisted.theme)
+            ? persisted.theme
+            : currentState.theme,
         };
       },
     },

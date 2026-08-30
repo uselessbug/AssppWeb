@@ -1,11 +1,17 @@
-import { Profiler } from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import ProductDetail from '../../src/components/Search/ProductDetail';
-import { useToastStore } from '../../src/store/toast';
-import type { Account, Software } from '../../src/types';
+import { Profiler } from "react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import ProductDetail from "../../src/components/Search/ProductDetail";
+import { useToastStore } from "../../src/store/toast";
+import type { Account, Software } from "../../src/types";
 
 const mocks = vi.hoisted(() => ({
   accounts: [] as Account[],
@@ -16,19 +22,19 @@ const mocks = vi.hoisted(() => ({
   lookupApp: vi.fn(),
 }));
 
-vi.mock('react-i18next', () => ({
+vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,
   }),
 }));
 
-vi.mock('../../src/hooks/useAccounts', () => ({
+vi.mock("../../src/hooks/useAccounts", () => ({
   useAccounts: () => ({
     accounts: mocks.accounts,
   }),
 }));
 
-vi.mock('../../src/hooks/useDownloadAction', () => ({
+vi.mock("../../src/hooks/useDownloadAction", () => ({
   useDownloadAction: () => ({
     startDownload: mocks.startDownload,
     acquireLicense: mocks.acquireLicense,
@@ -37,41 +43,41 @@ vi.mock('../../src/hooks/useDownloadAction', () => ({
   }),
 }));
 
-vi.mock('../../src/api/search', () => ({
+vi.mock("../../src/api/search", () => ({
   lookupApp: mocks.lookupApp,
 }));
 
 const app: Software = {
   id: 123456,
-  bundleID: 'com.example.utility',
-  name: 'Example Utility',
-  version: '3.4.5',
+  bundleID: "com.example.utility",
+  name: "Example Utility",
+  version: "3.4.5",
   price: 0,
-  artistName: 'Example Developer',
-  sellerName: 'Example Developer LLC',
-  description: 'A test application.',
+  artistName: "Example Developer",
+  sellerName: "Example Developer LLC",
+  description: "A test application.",
   averageUserRating: 4.8,
   userRatingCount: 42,
-  artworkUrl: '',
+  artworkUrl: "",
   screenshotUrls: [],
-  minimumOsVersion: '16.0',
-  fileSizeBytes: '5242880',
-  releaseDate: '2026-08-01T00:00:00Z',
-  formattedPrice: 'Free',
-  primaryGenreName: 'Utilities',
+  minimumOsVersion: "16.0",
+  fileSizeBytes: "5242880",
+  releaseDate: "2026-08-01T00:00:00Z",
+  formattedPrice: "Free",
+  primaryGenreName: "Utilities",
 };
 
 const account: Account = {
-  email: 'developer@example.test',
-  password: 'test-password',
-  appleId: 'developer@example.test',
-  store: '143441',
-  firstName: 'Example',
-  lastName: 'Developer',
-  passwordToken: 'test-token',
-  directoryServicesIdentifier: '123456789',
+  email: "developer@example.test",
+  password: "test-password",
+  appleId: "developer@example.test",
+  store: "143441",
+  firstName: "Example",
+  lastName: "Developer",
+  passwordToken: "test-token",
+  directoryServicesIdentifier: "123456789",
   cookies: [],
-  deviceIdentifier: '001122aabbcc',
+  deviceIdentifier: "001122aabbcc",
 };
 
 function deferredPromise() {
@@ -93,7 +99,7 @@ function renderProductDetail(onRender?: () => void) {
       initialEntries={[
         {
           pathname: `/search/${app.id}`,
-          state: { app, country: 'US' },
+          state: { app, country: "US" },
         },
       ]}
     >
@@ -117,9 +123,7 @@ function renderProductDetail(onRender?: () => void) {
 
 function renderProductPreview() {
   return render(
-    <MemoryRouter
-      initialEntries={['/search/preview?preview=product']}
-    >
+    <MemoryRouter initialEntries={["/search/preview?preview=product"]}>
       <Routes>
         <Route path="/search/:appId" element={<ProductDetail />} />
       </Routes>
@@ -127,7 +131,7 @@ function renderProductPreview() {
   );
 }
 
-describe('ProductDetail download action', () => {
+describe("ProductDetail download action", () => {
   beforeEach(() => {
     mocks.accounts = [account];
     mocks.startDownload.mockReset();
@@ -147,39 +151,39 @@ describe('ProductDetail download action', () => {
     useToastStore.setState({ toasts: [] });
   });
 
-  it('keeps the download button stable until startDownload resolves', async () => {
+  it("keeps the download button stable until startDownload resolves", async () => {
     const deferred = deferredPromise();
     mocks.startDownload.mockReturnValue(deferred.promise);
     const user = userEvent.setup();
 
     const { rerender } = renderProductDetail();
-    const accountSelect = screen.getByRole('combobox');
+    const accountSelect = screen.getByRole("combobox");
     await waitFor(() => expect(accountSelect).toHaveValue(account.email));
 
-    const downloadButton = screen.getByRole('button', {
-      name: 'search.product.download',
+    const downloadButton = screen.getByRole("button", {
+      name: "search.product.download",
     });
-    const licenseButton = screen.getByRole('button', {
-      name: 'search.product.getLicense',
+    const licenseButton = screen.getByRole("button", {
+      name: "search.product.getLicense",
     });
     const iconSlot = downloadButton.querySelector('span[aria-hidden="true"]');
 
-    expect(downloadButton).toHaveClass('w-full', 'min-w-0');
-    expect(downloadButton).not.toHaveClass('opacity-50');
-    expect(downloadButton).toHaveAttribute('aria-busy', 'false');
-    expect(iconSlot).toHaveClass('h-4', 'w-4', 'shrink-0');
+    expect(downloadButton).toHaveClass("w-full", "min-w-0");
+    expect(downloadButton).not.toHaveClass("opacity-50");
+    expect(downloadButton).toHaveAttribute("aria-busy", "false");
+    expect(iconSlot).toHaveClass("h-4", "w-4", "shrink-0");
 
     await user.click(downloadButton);
 
     expect(mocks.startDownload).toHaveBeenCalledOnce();
     expect(mocks.startDownload).toHaveBeenCalledWith(account, app);
     expect(downloadButton).toBeDisabled();
-    expect(downloadButton).toHaveAttribute('aria-busy', 'true');
-    expect(downloadButton).toHaveTextContent('search.product.download');
-    expect(downloadButton).not.toHaveTextContent('search.product.processing');
-    expect(downloadButton).toHaveClass('w-full', 'min-w-0');
-    expect(downloadButton).not.toHaveClass('opacity-50');
-    expect(downloadButton.querySelector('.animate-spin')).toBeInTheDocument();
+    expect(downloadButton).toHaveAttribute("aria-busy", "true");
+    expect(downloadButton).toHaveTextContent("search.product.download");
+    expect(downloadButton).not.toHaveTextContent("search.product.processing");
+    expect(downloadButton).toHaveClass("w-full", "min-w-0");
+    expect(downloadButton).not.toHaveClass("opacity-50");
+    expect(downloadButton.querySelector(".animate-spin")).toBeInTheDocument();
     expect(accountSelect).toBeDisabled();
     expect(licenseButton).toBeDisabled();
 
@@ -189,7 +193,7 @@ describe('ProductDetail download action', () => {
         initialEntries={[
           {
             pathname: `/search/${app.id}`,
-            state: { app, country: 'US' },
+            state: { app, country: "US" },
           },
         ]}
       >
@@ -203,10 +207,10 @@ describe('ProductDetail download action', () => {
     });
 
     expect(downloadButton).toBeDisabled();
-    expect(downloadButton).toHaveAttribute('aria-busy', 'true');
-    expect(downloadButton).toHaveTextContent('search.product.download');
-    expect(downloadButton).not.toHaveTextContent('search.product.processing');
-    expect(downloadButton.querySelector('.animate-spin')).toBeInTheDocument();
+    expect(downloadButton).toHaveAttribute("aria-busy", "true");
+    expect(downloadButton).toHaveTextContent("search.product.download");
+    expect(downloadButton).not.toHaveTextContent("search.product.processing");
+    expect(downloadButton.querySelector(".animate-spin")).toBeInTheDocument();
     expect(mocks.startDownload).toHaveBeenCalledOnce();
 
     await act(async () => {
@@ -215,53 +219,55 @@ describe('ProductDetail download action', () => {
     });
 
     await waitFor(() => expect(downloadButton).toBeEnabled());
-    expect(downloadButton).toHaveAttribute('aria-busy', 'false');
-    expect(downloadButton).toHaveTextContent('search.product.download');
-    expect(downloadButton).not.toHaveTextContent('search.product.processing');
-    expect(downloadButton).toHaveClass('w-full', 'min-w-0');
-    expect(downloadButton).not.toHaveClass('opacity-50');
-    expect(downloadButton.querySelector('.animate-spin')).not.toBeInTheDocument();
+    expect(downloadButton).toHaveAttribute("aria-busy", "false");
+    expect(downloadButton).toHaveTextContent("search.product.download");
+    expect(downloadButton).not.toHaveTextContent("search.product.processing");
+    expect(downloadButton).toHaveClass("w-full", "min-w-0");
+    expect(downloadButton).not.toHaveClass("opacity-50");
+    expect(
+      downloadButton.querySelector(".animate-spin"),
+    ).not.toBeInTheDocument();
     expect(downloadButton.querySelector('span[aria-hidden="true"]')).toBe(
       iconSlot,
     );
   });
 
-  it('is disabled on the initial commit before an account is selected', async () => {
+  it("is disabled on the initial commit before an account is selected", async () => {
     const disabledByCommit: boolean[] = [];
 
     renderProductDetail(() => {
       const button = Array.from(
-        document.querySelectorAll<HTMLButtonElement>('button'),
+        document.querySelectorAll<HTMLButtonElement>("button"),
       ).find((candidate) =>
-        candidate.textContent?.includes('search.product.download'),
+        candidate.textContent?.includes("search.product.download"),
       );
       if (button) disabledByCommit.push(button.disabled);
     });
 
-    const downloadButton = screen.getByRole('button', {
-      name: 'search.product.download',
+    const downloadButton = screen.getByRole("button", {
+      name: "search.product.download",
     });
     expect(disabledByCommit[0]).toBe(true);
     await waitFor(() => expect(downloadButton).toBeEnabled());
   });
 
-  it('keeps license, download, and version actions in one grid row', () => {
+  it("keeps license, download, and version actions in one grid row", () => {
     renderProductDetail();
 
-    const licenseButton = screen.getByRole('button', {
-      name: 'search.product.getLicense',
+    const licenseButton = screen.getByRole("button", {
+      name: "search.product.getLicense",
     });
-    const downloadButton = screen.getByRole('button', {
-      name: 'search.product.download',
+    const downloadButton = screen.getByRole("button", {
+      name: "search.product.download",
     });
-    const versionLink = screen.getByRole('link', {
-      name: 'search.product.versionHistory',
+    const versionLink = screen.getByRole("link", {
+      name: "search.product.versionHistory",
     });
     const actionRow = licenseButton.parentElement;
 
     expect(actionRow).toBe(downloadButton.parentElement);
     expect(actionRow).toBe(versionLink.parentElement);
-    expect(actionRow).toHaveClass('grid', 'grid-flow-col', 'auto-cols-fr');
+    expect(actionRow).toHaveClass("grid", "grid-flow-col", "auto-cols-fr");
     expect(Array.from(actionRow?.children ?? [])).toEqual([
       licenseButton,
       downloadButton,
@@ -269,17 +275,17 @@ describe('ProductDetail download action', () => {
     ]);
 
     for (const action of [licenseButton, downloadButton, versionLink]) {
-      expect(action).toHaveClass('w-full', 'min-w-0');
+      expect(action).toHaveClass("w-full", "min-w-0");
     }
     expect(licenseButton).toHaveClass(
-      'inline-flex',
-      'items-center',
-      'justify-center',
-      'gap-1.5',
+      "inline-flex",
+      "items-center",
+      "justify-center",
+      "gap-1.5",
     );
   });
 
-  it('simulates a preview download without calling real services', async () => {
+  it("simulates a preview download without calling real services", async () => {
     vi.useFakeTimers();
     mocks.accounts = [];
 
@@ -289,12 +295,12 @@ describe('ProductDetail download action', () => {
     });
 
     expect(
-      screen.getByRole('heading', { name: 'Signal Canvas' }),
+      screen.getByRole("heading", { name: "Signal Canvas" }),
     ).toBeInTheDocument();
-    const accountSelect = screen.getByRole('combobox');
-    expect(accountSelect).toHaveValue('developer@preview.asspp.invalid');
-    const downloadButton = screen.getByRole('button', {
-      name: 'search.product.download',
+    const accountSelect = screen.getByRole("combobox");
+    expect(accountSelect).toHaveValue("developer@preview.asspp.invalid");
+    const downloadButton = screen.getByRole("button", {
+      name: "search.product.download",
     });
     expect(downloadButton).toBeEnabled();
     expect(useToastStore.getState().toasts).toHaveLength(0);
@@ -302,8 +308,8 @@ describe('ProductDetail download action', () => {
     fireEvent.click(downloadButton);
 
     expect(downloadButton).toBeDisabled();
-    expect(downloadButton).toHaveAttribute('aria-busy', 'true');
-    expect(downloadButton.querySelector('.animate-spin')).toBeInTheDocument();
+    expect(downloadButton).toHaveAttribute("aria-busy", "true");
+    expect(downloadButton.querySelector(".animate-spin")).toBeInTheDocument();
     expect(mocks.lookupApp).not.toHaveBeenCalled();
     expect(mocks.startDownload).not.toHaveBeenCalled();
     expect(mocks.acquireLicense).not.toHaveBeenCalled();
@@ -313,8 +319,8 @@ describe('ProductDetail download action', () => {
     });
 
     expect(downloadButton).toBeDisabled();
-    expect(downloadButton).toHaveAttribute('aria-busy', 'true');
-    expect(downloadButton.querySelector('.animate-spin')).toBeInTheDocument();
+    expect(downloadButton).toHaveAttribute("aria-busy", "true");
+    expect(downloadButton.querySelector(".animate-spin")).toBeInTheDocument();
     expect(useToastStore.getState().toasts).toHaveLength(0);
     expect(mocks.lookupApp).not.toHaveBeenCalled();
     expect(mocks.startDownload).not.toHaveBeenCalled();
@@ -325,16 +331,18 @@ describe('ProductDetail download action', () => {
     });
 
     expect(downloadButton).toBeEnabled();
-    expect(downloadButton).toHaveAttribute('aria-busy', 'false');
-    expect(downloadButton.querySelector('.animate-spin')).not.toBeInTheDocument();
+    expect(downloadButton).toHaveAttribute("aria-busy", "false");
+    expect(
+      downloadButton.querySelector(".animate-spin"),
+    ).not.toBeInTheDocument();
     expect(mocks.lookupApp).not.toHaveBeenCalled();
     expect(mocks.startDownload).not.toHaveBeenCalled();
     expect(mocks.acquireLicense).not.toHaveBeenCalled();
     expect(useToastStore.getState().toasts).toEqual([
       expect.objectContaining({
-        message: 'search.product.previewActionComplete',
-        title: 'search.product.previewBadge',
-        type: 'success',
+        message: "search.product.previewActionComplete",
+        title: "search.product.previewBadge",
+        type: "success",
       }),
     ]);
   });

@@ -1,8 +1,8 @@
-import { createServer } from 'http';
-import AdmZip from 'adm-zip';
-import plist from 'plist';
-import { afterEach, describe, expect, it } from 'vitest';
-import { readRemoteIpaVersionMetadata } from '../src/services/remoteIpaMetadata.js';
+import { createServer } from "http";
+import AdmZip from "adm-zip";
+import plist from "plist";
+import { afterEach, describe, expect, it } from "vitest";
+import { readRemoteIpaVersionMetadata } from "../src/services/remoteIpaMetadata.js";
 
 const servers: ReturnType<typeof createServer>[] = [];
 
@@ -55,16 +55,17 @@ async function serveRanges(data: Buffer): Promise<{
 
     const body = data.subarray(start, end + 1);
     res.statusCode = 206;
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Content-Range', `bytes ${start}-${end}/${data.length}`);
-    res.setHeader('Content-Length', String(body.length));
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Content-Range", `bytes ${start}-${end}/${data.length}`);
+    res.setHeader("Content-Length", String(body.length));
     res.end(body);
   });
   servers.push(server);
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('Missing address');
+  if (!address || typeof address === "string")
+    throw new Error("Missing address");
 
   return {
     url: `http://127.0.0.1:${address.port}/test.ipa`,
@@ -73,11 +74,11 @@ async function serveRanges(data: Buffer): Promise<{
 }
 
 function makeZip64Ipa(): Buffer {
-  const filename = Buffer.from('Payload/Test.app/Info.plist');
+  const filename = Buffer.from("Payload/Test.app/Info.plist");
   const body = Buffer.from(
     plist.build({
-      CFBundleShortVersionString: '9.1.2',
-      releaseDate: '2026-08-20T01:02:03Z',
+      CFBundleShortVersionString: "9.1.2",
+      releaseDate: "2026-08-20T01:02:03Z",
     }),
   );
 
@@ -129,11 +130,7 @@ function makeZip64Ipa(): Buffer {
   centralHeader.writeUInt32LE(0, 38);
   centralHeader.writeUInt32LE(UINT32_MAX, 42);
 
-  const directory = Buffer.concat([
-    centralHeader,
-    filename,
-    centralZip64Extra,
-  ]);
+  const directory = Buffer.concat([centralHeader, filename, centralZip64Extra]);
   const zip64EocdOffset = directoryOffset + directory.length;
 
   const zip64Eocd = Buffer.alloc(56);
@@ -167,35 +164,35 @@ function makeZip64Ipa(): Buffer {
   return Buffer.concat([localRecord, directory, zip64Eocd, locator, eocd]);
 }
 
-describe('readRemoteIpaVersionMetadata', () => {
-  it('reads version metadata with range requests only', async () => {
+describe("readRemoteIpaVersionMetadata", () => {
+  it("reads version metadata with range requests only", async () => {
     const zip = new AdmZip();
     zip.addFile(
-      'Payload/Test.app/Info.plist',
+      "Payload/Test.app/Info.plist",
       Buffer.from(
         plist.build({
-          CFBundleShortVersionString: '8.0.61',
-          releaseDate: '2026-08-12T10:20:30Z',
+          CFBundleShortVersionString: "8.0.61",
+          releaseDate: "2026-08-12T10:20:30Z",
         }),
       ),
     );
-    zip.addFile('Payload/Test.app/Filler.bin', Buffer.alloc(128 * 1024, 7));
+    zip.addFile("Payload/Test.app/Filler.bin", Buffer.alloc(128 * 1024, 7));
     const ipa = zip.toBuffer();
     const server = await serveRanges(ipa);
 
     await expect(readRemoteIpaVersionMetadata(server.url)).resolves.toEqual({
-      displayVersion: '8.0.61',
-      releaseDate: '2026-08-12T10:20:30.000Z',
+      displayVersion: "8.0.61",
+      releaseDate: "2026-08-12T10:20:30.000Z",
     });
     expect(server.fullRequests()).toBe(0);
   });
 
-  it('reads ZIP64 central-directory metadata without downloading the full IPA', async () => {
+  it("reads ZIP64 central-directory metadata without downloading the full IPA", async () => {
     const server = await serveRanges(makeZip64Ipa());
 
     await expect(readRemoteIpaVersionMetadata(server.url)).resolves.toEqual({
-      displayVersion: '9.1.2',
-      releaseDate: '2026-08-20T01:02:03.000Z',
+      displayVersion: "9.1.2",
+      releaseDate: "2026-08-20T01:02:03.000Z",
     });
     expect(server.fullRequests()).toBe(0);
   });

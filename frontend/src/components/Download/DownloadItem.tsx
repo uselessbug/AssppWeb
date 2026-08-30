@@ -1,12 +1,12 @@
-import { memo, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import AppIcon from '../common/AppIcon';
-import Badge from '../common/Badge';
-import ProgressBar from '../common/ProgressBar';
-import PackageQuickActions from './PackageQuickActions';
-import { formatBytes } from '../../utils/format';
-import type { DownloadTask } from '../../types';
+import { memo, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import AppIcon from "../common/AppIcon";
+import Badge from "../common/Badge";
+import ProgressBar from "../common/ProgressBar";
+import PackageQuickActions from "./PackageQuickActions";
+import { formatBytes } from "../../utils/format";
+import type { DownloadTask } from "../../types";
 
 interface DownloadItemProps {
   task: DownloadTask;
@@ -30,10 +30,10 @@ const DownloadItem = memo(function DownloadItem({
 }: DownloadItemProps) {
   const { t } = useTranslation();
 
-  const isActive = task.status === 'downloading' || task.status === 'injecting';
-  const isPaused = task.status === 'paused';
+  const isActive = task.status === "downloading" || task.status === "injecting";
+  const isPaused = task.status === "paused";
   const detailsHref = `/downloads/${task.id}${
-    preview ? '?preview=downloads' : ''
+    preview ? "?preview=downloads" : ""
   }`;
 
   const header = (
@@ -43,8 +43,8 @@ const DownloadItem = memo(function DownloadItem({
           aria-hidden="true"
           className={`mt-4 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
             selected
-              ? 'border-blue-600 bg-blue-600 text-white'
-              : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-900'
+              ? "border-blue-600 bg-blue-600 text-white"
+              : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-900"
           }`}
         >
           {selected && (
@@ -109,8 +109,8 @@ const DownloadItem = memo(function DownloadItem({
     <article
       className={`min-w-0 rounded-3xl bg-white p-4 shadow-sm ring-1 dark:bg-gray-900 sm:p-5 ${
         managing && selected
-          ? 'ring-2 ring-blue-500/70 dark:ring-blue-400/70'
-          : 'ring-black/5 dark:ring-white/10'
+          ? "ring-2 ring-blue-500/70 dark:ring-blue-400/70"
+          : "ring-black/5 dark:ring-white/10"
       }`}
     >
       {managing ? (
@@ -120,7 +120,7 @@ const DownloadItem = memo(function DownloadItem({
           className="block w-full min-w-0 rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
           aria-pressed={selected}
           aria-label={t(
-            selected ? 'downloads.deselectItem' : 'downloads.selectItem',
+            selected ? "downloads.deselectItem" : "downloads.selectItem",
             { name: task.software.name },
           )}
         >
@@ -137,16 +137,16 @@ const DownloadItem = memo(function DownloadItem({
 
       <dl className="mt-3 grid min-w-0 grid-cols-3 gap-2">
         <SummaryItem
-          label={t('downloads.package.version')}
+          label={t("downloads.package.version")}
           value={task.software.version}
         />
         <SummaryItem
-          label={t('downloads.package.size')}
+          label={t("downloads.package.size")}
           value={formatBytes(task.software.fileSizeBytes)}
         />
         <SummaryItem
-          label={t('downloads.package.minOs')}
-          value={`iOS ${task.software.minimumOsVersion || '—'}`}
+          label={t("downloads.package.minOs")}
+          value={`iOS ${task.software.minimumOsVersion || "—"}`}
         />
       </dl>
 
@@ -170,7 +170,7 @@ const DownloadItem = memo(function DownloadItem({
         </p>
       )}
 
-      {!managing && task.status === 'completed' && task.hasFile && (
+      {!managing && task.status === "completed" && task.hasFile && (
         <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
           <PackageQuickActions task={task} size="compact" />
         </div>
@@ -179,13 +179,11 @@ const DownloadItem = memo(function DownloadItem({
       {!managing && (isActive || isPaused) && (
         <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
           <ActionButton
-            onClick={() =>
-              isActive ? onPause(task.id) : onResume(task.id)
-            }
+            onClick={() => (isActive ? onPause(task.id) : onResume(task.id))}
           >
             {isActive
-              ? t('downloads.package.pause')
-              : t('downloads.package.resume')}
+              ? t("downloads.package.pause")
+              : t("downloads.package.resume")}
           </ActionButton>
         </div>
       )}

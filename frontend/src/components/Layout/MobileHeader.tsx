@@ -1,6 +1,6 @@
-import { useTranslation } from 'react-i18next';
-import { MoonIcon, SunIcon, SystemIcon } from '../common/icons';
-import { useSettingsStore } from '../../store/settings';
+import { useTranslation } from "react-i18next";
+import { MoonIcon, SunIcon, SystemIcon } from "../common/icons";
+import { useSettingsStore } from "../../store/settings";
 
 export default function MobileHeader() {
   return (
@@ -32,9 +32,9 @@ function ThemeToggle() {
   const { t } = useTranslation();
 
   const cycleTheme = () => {
-    if (theme === 'system') setTheme('light');
-    else if (theme === 'light') setTheme('dark');
-    else setTheme('system');
+    if (theme === "system") setTheme("light");
+    else if (theme === "light") setTheme("dark");
+    else setTheme("system");
   };
 
   return (
@@ -44,9 +44,9 @@ function ThemeToggle() {
       className="flex h-9 w-9 items-center justify-center rounded-full bg-white/75 text-blue-600 shadow-sm ring-1 ring-gray-200/70 transition-colors hover:bg-white active:bg-gray-100 dark:bg-gray-800/75 dark:text-blue-400 dark:ring-gray-700/80 dark:hover:bg-gray-800 dark:active:bg-gray-700"
       title={t(`theme.${theme}`)}
     >
-      {theme === 'light' && <SunIcon className="h-[18px] w-[18px]" />}
-      {theme === 'dark' && <MoonIcon className="h-[18px] w-[18px]" />}
-      {theme === 'system' && <SystemIcon className="h-[18px] w-[18px]" />}
+      {theme === "light" && <SunIcon className="h-[18px] w-[18px]" />}
+      {theme === "dark" && <MoonIcon className="h-[18px] w-[18px]" />}
+      {theme === "system" && <SystemIcon className="h-[18px] w-[18px]" />}
     </button>
   );
 }

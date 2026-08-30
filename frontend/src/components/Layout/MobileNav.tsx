@@ -1,19 +1,19 @@
-import { useTranslation } from 'react-i18next';
-import { NavLink } from 'react-router-dom';
+import { useTranslation } from "react-i18next";
+import { NavLink } from "react-router-dom";
 import {
   AccountsIcon,
   DownloadsIcon,
   HomeIcon,
   SearchIcon,
   SettingsIcon,
-} from '../common/icons';
+} from "../common/icons";
 
 const navItems = [
-  { to: '/', label: 'home', icon: HomeIcon },
-  { to: '/accounts', label: 'accounts', icon: AccountsIcon },
-  { to: '/search', label: 'search', icon: SearchIcon },
-  { to: '/downloads', label: 'downloads', icon: DownloadsIcon },
-  { to: '/settings', label: 'settings', icon: SettingsIcon },
+  { to: "/", label: "home", icon: HomeIcon },
+  { to: "/accounts", label: "accounts", icon: AccountsIcon },
+  { to: "/search", label: "search", icon: SearchIcon },
+  { to: "/downloads", label: "downloads", icon: DownloadsIcon },
+  { to: "/settings", label: "settings", icon: SettingsIcon },
 ];
 
 export default function MobileNav() {
@@ -26,12 +26,12 @@ export default function MobileNav() {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === '/'}
+            end={item.to === "/"}
             className={({ isActive }) =>
               `flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 pb-1 pt-1.5 text-[10px] font-medium leading-none transition-colors ${
                 isActive
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               }`
             }
           >
