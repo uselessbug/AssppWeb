@@ -109,14 +109,20 @@ export function installExperimentalBrowserSapRuntime() {
     const module = await loadUnicornX86Module();
     await runUnicornX64SmokeTest(module);
 
-    const machine = BrowserSapMachine.open(module);
-    machine.close();
-
     const extraction = await extractAppleSapAssets();
-    const macho = inspectAppleSapMachO(extraction.bundle);
-    throw new Error(
-      `Browser SAP Mach-O headers and required exports resolved from ${extraction.source ?? "network"}: CoreFP(seg=${macho.coreFP.segments},exports=${macho.coreFP.exports}), CommerceCore(seg=${macho.commerceCore.segments},exports=${macho.commerceCore.exports}), CommerceKit(seg=${macho.commerceKit.segments},exports=${macho.commerceKit.exports}), sign=0x${macho.sign.toString(16)}; dyld relocation and shims are the next required stage`,
-    );
+    const machine = BrowserSapMachine.openLinked(module, extraction.bundle);
+    try {
+      const summary = machine.summary();
+      if (!summary) {
+        throw new Error("Browser SAP linked machine did not expose a link summary");
+      }
+
+      throw new Error(
+        `Browser SAP dyld relocation and image mapping succeeded from ${extraction.source ?? "network"}: CoreFP(rebase=${summary.coreFP.rebases},bind=${summary.coreFP.binds}), CommerceCore(rebase=${summary.commerceCore.rebases},bind=${summary.commerceCore.binds}), CommerceKit(rebase=${summary.commerceKit.rebases},bind=${summary.commerceKit.binds}), shimImports=${summary.shimImports}; executable shim services and guest SAP initialization are the next required stage`,
+      );
+    } finally {
+      machine.close();
+    }
   });
 
   if (typeof window !== "undefined") {
