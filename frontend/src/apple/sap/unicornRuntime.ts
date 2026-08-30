@@ -2,12 +2,35 @@ import { registerBrowserSapSignerFactory } from "../sap";
 import { extractAppleSapAssets } from "./assetExtractor";
 import { inspectAppleSapPackage } from "./assets";
 import { BrowserSapMachine } from "./machine";
+import { BrowserMachOImage } from "./macho";
+import {
+  SAP_COMMERCE_BASE,
+  SAP_CORE_FP_BASE,
+  SAP_KIT_BASE,
+} from "./unicornEngine";
 
 const UNICORN_VERSION = "2.1.4";
 const UNICORN_SCRIPT_URL = `https://cdn.jsdelivr.net/npm/@alexaltea/unicorn-js@${UNICORN_VERSION}/dist/unicorn_x86.js`;
 const SMOKE_ADDRESS = 0x100000;
 const SAP_HIGH_ADDRESS = 0x0000300000000000;
 const SMOKE_EXPECTED_RAX = 0x1122334455667788n;
+
+const CORE_FP_EXPORTS = [
+  "_WIn9UJ86JKdV4dM",
+  "_X46O5IeS",
+  "_YlCJ3lg",
+  "_dku592fbFAj",
+  "_fdjkDSAFjklaf2s",
+  "_lxpgvVMLd0S7uRl",
+] as const;
+
+const COMMERCE_KIT_EXPORTS = [
+  "_cp2g1b9ro",
+  "_Mib5yocT",
+  "_Fc3vhtJDvr",
+  "_IPaI1oem5iL",
+  "_jEHf8Xzsv8K",
+] as const;
 
 export interface UnicornHook {
   handle: number;
@@ -56,6 +79,7 @@ interface SapDebugApi {
   runUnicornX64SmokeTest: () => Promise<UnicornSmokeResult>;
   inspectAppleSapPackage: typeof inspectAppleSapPackage;
   extractAppleSapAssets: typeof extractAppleSapAssets;
+  inspectAppleSapMachO: typeof inspectAppleSapMachO;
 }
 
 declare global {
@@ -69,6 +93,17 @@ export interface UnicornSmokeResult {
   version: string;
   rax: string;
   highAddressRoundTrip: boolean;
+}
+
+export interface AppleSapMachOInspection {
+  coreFP: ReturnType<BrowserMachOImage["summary"]>;
+  commerceCore: ReturnType<BrowserMachOImage["summary"]>;
+  commerceKit: ReturnType<BrowserMachOImage["summary"]>;
+  initialize: number;
+  exchange: number;
+  sign: number;
+  teardown: number;
+  dispose: number;
 }
 
 let modulePromise: Promise<UnicornX86Module> | undefined;
@@ -86,8 +121,9 @@ export function installExperimentalBrowserSapRuntime() {
     machine.close();
 
     const extraction = await extractAppleSapAssets();
+    const macho = inspectAppleSapMachO(extraction.bundle);
     throw new Error(
-      `Browser SAP assets extracted and SHA-256 verified: blocks=${extraction.blocksDecoded}, compressed=${extraction.compressedBytesRead} bytes, decompressed=${extraction.decompressedBytesRead} bytes; Mach-O loading and shims are the next required stage`,
+      `Browser SAP Mach-O images parsed and required exports resolved: CoreFP(seg=${macho.coreFP.segments},rebase=${macho.coreFP.rebases},bind=${macho.coreFP.binds}), CommerceCore(seg=${macho.commerceCore.segments},rebase=${macho.commerceCore.rebases},bind=${macho.commerceCore.binds}), CommerceKit(seg=${macho.commerceKit.segments},rebase=${macho.commerceKit.rebases},bind=${macho.commerceKit.binds}), sign=0x${macho.sign.toString(16)}; relocation, shims, and guest execution are the next required stage`,
     );
   });
 
@@ -98,8 +134,39 @@ export function installExperimentalBrowserSapRuntime() {
         runUnicornX64SmokeTest(await loadUnicornX86Module()),
       inspectAppleSapPackage,
       extractAppleSapAssets,
+      inspectAppleSapMachO,
     };
   }
+}
+
+export function inspectAppleSapMachO(
+  bundle: Awaited<ReturnType<typeof extractAppleSapAssets>>["bundle"],
+): AppleSapMachOInspection {
+  const coreFP = BrowserMachOImage.open("CoreFP", bundle.CoreFP);
+  const commerceCore = BrowserMachOImage.open("CommerceCore", bundle.CommerceCore);
+  const commerceKit = BrowserMachOImage.open("CommerceKit", bundle.CommerceKit);
+
+  for (const name of CORE_FP_EXPORTS) {
+    coreFP.export(name, SAP_CORE_FP_BASE);
+  }
+  commerceCore.export("_get_mac_address", SAP_COMMERCE_BASE);
+
+  const initialize = commerceKit.export("_cp2g1b9ro", SAP_KIT_BASE);
+  const exchange = commerceKit.export("_Mib5yocT", SAP_KIT_BASE);
+  const sign = commerceKit.export("_Fc3vhtJDvr", SAP_KIT_BASE);
+  const teardown = commerceKit.export("_IPaI1oem5iL", SAP_KIT_BASE);
+  const dispose = commerceKit.export("_jEHf8Xzsv8K", SAP_KIT_BASE);
+
+  return {
+    coreFP: coreFP.summary(),
+    commerceCore: commerceCore.summary(),
+    commerceKit: commerceKit.summary(),
+    initialize,
+    exchange,
+    sign,
+    teardown,
+    dispose,
+  };
 }
 
 export async function loadUnicornX86Module(): Promise<UnicornX86Module> {
