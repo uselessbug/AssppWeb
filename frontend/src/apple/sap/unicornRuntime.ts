@@ -14,6 +14,11 @@ const UNICORN_SCRIPT_URL = `https://cdn.jsdelivr.net/npm/@alexaltea/unicorn-js@$
 const SMOKE_ADDRESS = 0x100000;
 const SAP_HIGH_ADDRESS = 0x0000300000000000;
 const SMOKE_EXPECTED_RAX = 0x1122334455667788n;
+const HOOK_SMOKE_CODE_ADDRESS = 0x110000;
+const HOOK_SMOKE_SERVICE_ADDRESS = 0x111000;
+const HOOK_SMOKE_STACK_ADDRESS = 0x112000;
+const HOOK_SMOKE_STACK_POINTER = HOOK_SMOKE_STACK_ADDRESS + 0x800;
+const HOOK_SMOKE_EXPECTED_RAX = 0x7766554433221100n;
 
 const CORE_FP_EXPORTS = [
   "_WIn9UJ86JKdV4dM",
@@ -54,6 +59,7 @@ export interface UnicornX86Module {
   MODE_64: number;
   PROT_ALL: number;
   HOOK_CODE: number;
+  HOOK_BLOCK: number;
   X86_REG_RAX: number;
   X86_REG_RDI: number;
   X86_REG_RSI: number;
@@ -69,6 +75,7 @@ export interface UnicornX86Module {
 interface SapDebugApi {
   unicornVersion: string;
   runUnicornX64SmokeTest: () => Promise<UnicornSmokeResult>;
+  runUnicornHookReentrySmokeTest: () => Promise<UnicornHookSmokeResult>;
   inspectAppleSapPackage: typeof inspectAppleSapPackage;
   extractAppleSapAssets: typeof extractAppleSapAssets;
   inspectAppleSapMachO: typeof inspectAppleSapMachO;
@@ -85,6 +92,12 @@ export interface UnicornSmokeResult {
   version: string;
   rax: string;
   highAddressRoundTrip: boolean;
+}
+
+export interface UnicornHookSmokeResult {
+  hookCalled: boolean;
+  stackReturnAddress: string;
+  rax: string;
 }
 
 export interface AppleSapMachOInspection {
@@ -108,6 +121,7 @@ export function installExperimentalBrowserSapRuntime() {
   registerBrowserSapSignerFactory(async (_config, hardwareId) => {
     const module = await loadUnicornX86Module();
     await runUnicornX64SmokeTest(module);
+    await runUnicornHookReentrySmokeTest(module);
 
     const extraction = await extractAppleSapAssets();
     const machine = BrowserSapMachine.openLinked(module, extraction.bundle);
@@ -131,6 +145,8 @@ export function installExperimentalBrowserSapRuntime() {
       unicornVersion: UNICORN_VERSION,
       runUnicornX64SmokeTest: async () =>
         runUnicornX64SmokeTest(await loadUnicornX86Module()),
+      runUnicornHookReentrySmokeTest: async () =>
+        runUnicornHookReentrySmokeTest(await loadUnicornX86Module()),
       inspectAppleSapPackage,
       extractAppleSapAssets,
       inspectAppleSapMachO,
@@ -238,6 +254,129 @@ export async function runUnicornX64SmokeTest(
   } finally {
     engine.close();
   }
+}
+
+export async function runUnicornHookReentrySmokeTest(
+  module: UnicornX86Module,
+): Promise<UnicornHookSmokeResult> {
+  const code = new Uint8Array([
+    0x48,
+    0xb8,
+    0x00,
+    0x10,
+    0x11,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0xff,
+    0xd0,
+    0x90,
+  ]);
+  const service = new Uint8Array([0xc3]);
+  const engine = new module.Unicorn(module.ARCH_X86, module.MODE_64);
+  let hook: UnicornHook | undefined;
+  let hookCalled = false;
+  let hookError: Error | undefined;
+  let stackReturnAddress = 0n;
+
+  try {
+    engine.mem_map(HOOK_SMOKE_CODE_ADDRESS, 0x1000, module.PROT_ALL);
+    engine.mem_map(HOOK_SMOKE_SERVICE_ADDRESS, 0x1000, module.PROT_ALL);
+    engine.mem_map(HOOK_SMOKE_STACK_ADDRESS, 0x1000, module.PROT_ALL);
+    engine.mem_write(HOOK_SMOKE_CODE_ADDRESS, code);
+    engine.mem_write(HOOK_SMOKE_SERVICE_ADDRESS, service);
+    engine.reg_write_i64(module.X86_REG_RSP, BigInt(HOOK_SMOKE_STACK_POINTER));
+
+    hook = engine.hook_add(
+      module.HOOK_CODE,
+      (callbackEngine: UnicornEngine, address: bigint | number) => {
+        if (Number(address) !== HOOK_SMOKE_SERVICE_ADDRESS) return;
+        hookCalled = true;
+        try {
+          const stackPointer = callbackEngine.reg_read_i64(module.X86_REG_RSP);
+          if (
+            stackPointer < 0n ||
+            stackPointer > BigInt(Number.MAX_SAFE_INTEGER)
+          ) {
+            throw new Error("hook smoke stack pointer exceeds JavaScript safe range");
+          }
+          stackReturnAddress = readLittleUint64(
+            callbackEngine.mem_read(Number(stackPointer), 8),
+          );
+          callbackEngine.reg_write_i64(
+            module.X86_REG_RAX,
+            HOOK_SMOKE_EXPECTED_RAX,
+          );
+        } catch (error) {
+          hookError = error instanceof Error ? error : new Error(String(error));
+        }
+      },
+      undefined,
+      HOOK_SMOKE_SERVICE_ADDRESS,
+      HOOK_SMOKE_SERVICE_ADDRESS,
+    );
+
+    engine.emu_start(
+      HOOK_SMOKE_CODE_ADDRESS,
+      HOOK_SMOKE_CODE_ADDRESS + code.length,
+      0,
+      0,
+    );
+
+    if (hookError) {
+      throw new Error(`Unicorn code-hook re-entry smoke test failed: ${hookError.message}`);
+    }
+    if (!hookCalled) {
+      throw new Error("Unicorn code-hook re-entry smoke test did not enter the hook");
+    }
+
+    const expectedReturnAddress = BigInt(HOOK_SMOKE_CODE_ADDRESS + 12);
+    if (stackReturnAddress !== expectedReturnAddress) {
+      throw new Error(
+        `Unicorn code-hook re-entry smoke test observed return address 0x${stackReturnAddress.toString(16)}, expected 0x${expectedReturnAddress.toString(16)}`,
+      );
+    }
+
+    const rax = engine.reg_read_i64(module.X86_REG_RAX);
+    if (rax !== HOOK_SMOKE_EXPECTED_RAX) {
+      throw new Error(
+        `Unicorn code-hook re-entry smoke test returned RAX=0x${rax.toString(16)}`,
+      );
+    }
+
+    return {
+      hookCalled,
+      stackReturnAddress: `0x${stackReturnAddress.toString(16)}`,
+      rax: `0x${rax.toString(16)}`,
+    };
+  } finally {
+    if (hook) {
+      try {
+        engine.hook_del(hook);
+      } catch {
+        // A fatal Emscripten abort can make cleanup unavailable. Preserve the
+        // original execution error rather than masking it with hook cleanup.
+      }
+    }
+    try {
+      engine.close();
+    } catch {
+      // Same rationale as hook cleanup above.
+    }
+  }
+}
+
+function readLittleUint64(input: Uint8Array): bigint {
+  if (input.length !== 8) {
+    throw new Error(`expected 8-byte uint64, received ${input.length} bytes`);
+  }
+  const view = new DataView(input.buffer, input.byteOffset, input.byteLength);
+  return (
+    BigInt(view.getUint32(0, true)) |
+    (BigInt(view.getUint32(4, true)) << 32n)
+  );
 }
 
 function loadUnicornScript(): Promise<void> {
