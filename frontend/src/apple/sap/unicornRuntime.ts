@@ -6,12 +6,28 @@ const SMOKE_ADDRESS = 0x100000;
 const SAP_HIGH_ADDRESS = 0x0000300000000000;
 const SMOKE_EXPECTED_RAX = 0x1122334455667788n;
 
-interface UnicornEngine {
+export interface UnicornHook {
+  handle: number;
+  callback: number;
+}
+
+export interface UnicornEngine {
   mem_map(address: number, size: number, perms: number): void;
   mem_write(address: number, bytes: Uint8Array | number[]): void;
   mem_read(address: number, size: number): Uint8Array;
   emu_start(begin: number, until: number, timeout: number, count: number): void;
+  emu_stop(): void;
+  reg_write_i64(regid: number, value: bigint): void;
   reg_read_i64(regid: number): bigint;
+  hook_add(
+    type: number,
+    callback: (...args: any[]) => void,
+    userData?: unknown,
+    begin?: number,
+    end?: number,
+    extra?: number,
+  ): UnicornHook;
+  hook_del(hook: UnicornHook): void;
   close(): void;
 }
 
@@ -19,7 +35,16 @@ export interface UnicornX86Module {
   ARCH_X86: number;
   MODE_64: number;
   PROT_ALL: number;
+  HOOK_CODE: number;
   X86_REG_RAX: number;
+  X86_REG_RDI: number;
+  X86_REG_RSI: number;
+  X86_REG_RDX: number;
+  X86_REG_RCX: number;
+  X86_REG_R8: number;
+  X86_REG_R9: number;
+  X86_REG_RIP: number;
+  X86_REG_RSP: number;
   Unicorn: new (arch: number, mode: number) => UnicornEngine;
 }
 
