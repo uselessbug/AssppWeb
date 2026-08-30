@@ -111,7 +111,7 @@ describe("apple/bag", () => {
       }),
     );
 
-    const result = await fetchBag("aabbccddeeff\");
+    const result = await fetchBag("aabbccddeeff");
 
     expect(result.authURL).toBe(defaultAuthURL);
   });
