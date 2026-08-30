@@ -106,6 +106,7 @@ export class BrowserSapMachine {
         } catch (error) {
           this.softwareDispatchError =
             error instanceof Error ? error : new Error(String(error));
+          this.softwareDispatchTrace = `error=${this.softwareDispatchError.message}`;
           this.engine.stop();
           return;
         }
@@ -527,17 +528,23 @@ export class BrowserSapMachine {
     }
 
     const index = this.engine.regRead("rax");
-    if (index < 0n || index > BigInt(Number.MAX_SAFE_INTEGER / 4)) {
+    if (index < 0n) {
       throw new Error(
-        `CommerceKit sign dispatch index 0x${index.toString(16)} is outside the safe range`,
+        `CommerceKit sign dispatch index 0x${index.toString(16)} is negative`,
       );
     }
 
-    const tableEntryAddress =
-      COMMERCE_KIT_SIGN_TABLE_BASE + Number(index) * 4;
-    if (!Number.isSafeInteger(tableEntryAddress)) {
-      throw new Error("CommerceKit sign jump-table address exceeds safe range");
+    const tableEntryAddressBig =
+      BigInt(COMMERCE_KIT_SIGN_TABLE_BASE) + index * 4n;
+    if (
+      tableEntryAddressBig > BigInt(Number.MAX_SAFE_INTEGER) ||
+      tableEntryAddressBig + 3n >= BigInt(SAP_SHIM_BASE)
+    ) {
+      throw new Error(
+        `CommerceKit sign jump-table entry 0x${tableEntryAddressBig.toString(16)} is outside the safe CommerceKit range`,
+      );
     }
+    const tableEntryAddress = Number(tableEntryAddressBig);
 
     const entry = this.engine.memRead(tableEntryAddress, 4);
     const tableOffset = new DataView(
@@ -545,16 +552,17 @@ export class BrowserSapMachine {
       entry.byteOffset,
       entry.byteLength,
     ).getInt32(0, true);
-    const target = COMMERCE_KIT_SIGN_TABLE_BASE + tableOffset;
+    const targetBig = BigInt(COMMERCE_KIT_SIGN_TABLE_BASE) + BigInt(tableOffset);
     if (
-      !Number.isSafeInteger(target) ||
-      target < SAP_KIT_BASE ||
-      target >= SAP_SHIM_BASE
+      targetBig < BigInt(SAP_KIT_BASE) ||
+      targetBig >= BigInt(SAP_SHIM_BASE) ||
+      targetBig > BigInt(Number.MAX_SAFE_INTEGER)
     ) {
       throw new Error(
-        `CommerceKit sign jump-table target 0x${target.toString(16)} is outside CommerceKit`,
+        `CommerceKit sign jump-table target 0x${targetBig.toString(16)} is outside CommerceKit`,
       );
     }
+    const target = Number(targetBig);
 
     return {
       index,
