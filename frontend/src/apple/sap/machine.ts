@@ -27,11 +27,15 @@ const SAP_MAX_OUTPUT_SIZE = 16 << 20;
 const UINT32_MAX = 0xffffffff;
 const MAX_SOFTWARE_DISPATCH_RESUMES = 100_000;
 const COMMERCE_KIT_SIGN_DISPATCH_ADDRESS = SAP_KIT_BASE + 0x126777;
-const COMMERCE_KIT_SIGN_DISPATCH_JUMP = COMMERCE_KIT_SIGN_DISPATCH_ADDRESS + 14;
 const COMMERCE_KIT_SIGN_TABLE_BASE = SAP_KIT_BASE + 0x167804;
 const COMMERCE_KIT_SIGN_DISPATCH_BYTES = new Uint8Array([
   0x48, 0x8d, 0x0d, 0x86, 0x10, 0x04, 0x00, 0x48,
   0x63, 0x04, 0x81, 0x48, 0x01, 0xc8, 0xff, 0xe0,
+]);
+const SAP_SIGN_ADD_TRAMPOLINE = SAP_RETURN_ADDRESS + 0x100;
+const SAP_SIGN_ADD_TRAMPOLINE_BYTES = new Uint8Array([
+  0x48, 0x01, 0xc8,
+  0xe9, 0xf8, 0xfe, 0xff, 0xff,
 ]);
 const CORE_FP_EXPORT_NAMES = [
   "_WIn9UJ86JKdV4dM",
@@ -80,7 +84,6 @@ export class BrowserSapMachine {
   private lastBlockSize = 0;
   private timeoutError: Error | undefined;
   private softwareDispatchPending = false;
-  private softwareDispatchBypass = false;
   private softwareDispatchTrace = "none";
 
   private constructor(
@@ -95,7 +98,6 @@ export class BrowserSapMachine {
 
       if (
         this.activePhase === "sign" &&
-        !this.softwareDispatchBypass &&
         address === COMMERCE_KIT_SIGN_DISPATCH_ADDRESS
       ) {
         this.softwareDispatchPending = true;
@@ -452,7 +454,6 @@ export class BrowserSapMachine {
     this.lastBlockSize = 0;
     this.timeoutError = undefined;
     this.softwareDispatchPending = false;
-    this.softwareDispatchBypass = false;
     this.softwareDispatchTrace = "none";
     this.activePhase = phase;
     this.activeDeadline = performance.now() + SAP_EXECUTION_TIMEOUT_MS;
@@ -472,7 +473,7 @@ export class BrowserSapMachine {
           throw new Error("SAP sign software dispatch exceeded safety limit");
         }
 
-        const resume = this.executeSignDispatchPrefix();
+        const resume = this.executeSignDispatchTrampoline();
         this.softwareDispatchTrace = describeSoftwareDispatch(resume);
         beginAddress = resume.target;
       }
@@ -488,7 +489,6 @@ export class BrowserSapMachine {
     } finally {
       this.activeDeadline = 0;
       this.activePhase = "";
-      this.softwareDispatchBypass = false;
     }
 
     if (this.timeoutError) throw this.timeoutError;
@@ -505,7 +505,7 @@ export class BrowserSapMachine {
     return this.engine.regRead("rax");
   }
 
-  private executeSignDispatchPrefix(): SoftwareDispatchResume {
+  private executeSignDispatchTrampoline(): SoftwareDispatchResume {
     const actual = this.engine.memRead(
       COMMERCE_KIT_SIGN_DISPATCH_ADDRESS,
       COMMERCE_KIT_SIGN_DISPATCH_BYTES.length,
@@ -543,35 +543,33 @@ export class BrowserSapMachine {
     const expectedTargetBig =
       BigInt(COMMERCE_KIT_SIGN_TABLE_BASE) + BigInt(tableOffset);
 
-    this.softwareDispatchBypass = true;
-    try {
-      this.engine.startBrowserSafe(
-        COMMERCE_KIT_SIGN_DISPATCH_ADDRESS,
-        COMMERCE_KIT_SIGN_DISPATCH_JUMP,
-      );
-    } finally {
-      this.softwareDispatchBypass = false;
-    }
+    // LEA and MOVSXD do not modify flags, so reproduce those effects directly.
+    // Let Unicorn execute only ADD RAX, RCX in an isolated direct-jump
+    // trampoline. This preserves the exact x86 RFLAGS while avoiding the
+    // problematic indirect JMP translation in the original CommerceKit block.
+    this.engine.regWrite("rcx", BigInt(COMMERCE_KIT_SIGN_TABLE_BASE));
+    this.engine.regWrite("rax", BigInt.asUintN(64, BigInt(tableOffset)));
+    this.engine.startBrowserSafe(SAP_SIGN_ADD_TRAMPOLINE, SAP_RETURN_ADDRESS);
 
     if (this.timeoutError) throw this.timeoutError;
-    const instruction = this.engine.regRead("rip");
-    if (instruction !== BigInt(COMMERCE_KIT_SIGN_DISPATCH_JUMP)) {
+    const trampolineInstruction = this.engine.regRead("rip");
+    if (trampolineInstruction !== BigInt(SAP_RETURN_ADDRESS)) {
       throw new Error(
-        `CommerceKit sign dispatch prefix stopped at 0x${instruction.toString(16)}, expected 0x${COMMERCE_KIT_SIGN_DISPATCH_JUMP.toString(16)}`,
+        `SAP sign ADD trampoline stopped at 0x${trampolineInstruction.toString(16)}, expected return sentinel 0x${SAP_RETURN_ADDRESS.toString(16)}`,
       );
     }
 
     const tableBase = this.engine.regRead("rcx");
     if (tableBase !== BigInt(COMMERCE_KIT_SIGN_TABLE_BASE)) {
       throw new Error(
-        `CommerceKit sign dispatch produced RCX=0x${tableBase.toString(16)}, expected table base 0x${COMMERCE_KIT_SIGN_TABLE_BASE.toString(16)}`,
+        `SAP sign ADD trampoline produced RCX=0x${tableBase.toString(16)}, expected 0x${COMMERCE_KIT_SIGN_TABLE_BASE.toString(16)}`,
       );
     }
 
     const targetBig = this.engine.regRead("rax");
     if (targetBig !== expectedTargetBig) {
       throw new Error(
-        `CommerceKit sign dispatch produced target 0x${targetBig.toString(16)}, expected 0x${expectedTargetBig.toString(16)}`,
+        `SAP sign ADD trampoline produced target 0x${targetBig.toString(16)}, expected 0x${expectedTargetBig.toString(16)}`,
       );
     }
     if (
@@ -693,6 +691,7 @@ function createBaseEngine(module: UnicornX86Module): BrowserUnicornEngine {
     engine.memMap(SAP_STACK_BASE, SAP_STACK_SIZE);
 
     engine.memWrite(SAP_RETURN_ADDRESS, new Uint8Array([0xf4]));
+    engine.memWrite(SAP_SIGN_ADD_TRAMPOLINE, SAP_SIGN_ADD_TRAMPOLINE_BYTES);
     return engine;
   } catch (error) {
     engine.close();
