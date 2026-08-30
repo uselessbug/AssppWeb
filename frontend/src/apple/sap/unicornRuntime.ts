@@ -136,7 +136,12 @@ export function installExperimentalBrowserSapRuntime() {
         `Browser SAP guest initialization succeeded from ${extraction.source ?? "network"}: context=0x${contextValue.toString(16)}, shimImports=${summary.shimImports}; SAP setup exchange and action signing are the next required stage`,
       );
     } finally {
-      machine.close();
+      try {
+        machine.close();
+      } catch {
+        // A fatal Emscripten abort can invalidate the Unicorn instance. Do not
+        // let best-effort cleanup replace the original execution failure.
+      }
     }
   });
 
@@ -356,14 +361,13 @@ export async function runUnicornHookReentrySmokeTest(
       try {
         engine.hook_del(hook);
       } catch {
-        // A fatal Emscripten abort can make cleanup unavailable. Preserve the
-        // original execution error rather than masking it with hook cleanup.
+        // Preserve the original execution error if Emscripten aborted.
       }
     }
     try {
       engine.close();
     } catch {
-      // Same rationale as hook cleanup above.
+      // Preserve the original execution error if Emscripten aborted.
     }
   }
 }
