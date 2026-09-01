@@ -48,7 +48,7 @@ If your build log fails at `Deploy a container application` with `Unauthorized`,
 <summary>Click to show Railway deployment instructions</summary>
 
 1. Go to [railway.com/new/image](https://railway.com/new/image) → enter `ghcr.io/lakr233/assppweb:latest`
-2. In service **Settings**, set **Healthcheck Path** to `/api/settings` and deploy
+2. In service **Settings**, set **Healthcheck Path** to `/api/auth/status` and deploy
 3. Right-click the service → **Attach volume** → mount path: `/data`
 4. In **Variables**, set `DATA_DIR` = `/data` and deploy
 5. In **Settings** → **Networking**, generate a public domain or add a custom domain
