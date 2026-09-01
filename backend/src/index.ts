@@ -15,6 +15,7 @@ import installRoutes from "./routes/install.js";
 import settingsRoutes from "./routes/settings.js";
 import bagRoutes from "./routes/bag.js";
 import versionMetadataRoutes from "./routes/versionMetadata.js";
+import appleAuthRoutes from "./routes/appleAuth.js";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/api", installRoutes);
 app.use("/api", settingsRoutes);
 app.use("/api", bagRoutes);
 app.use("/api", versionMetadataRoutes);
+app.use("/api", appleAuthRoutes);
 
 // Serve static frontend files
 const publicDir = path.resolve(import.meta.dirname, "../public");
@@ -61,6 +63,9 @@ setupWsProxy(server);
 
 // Ensure data directory exists
 fs.mkdirSync(config.dataDir, { recursive: true });
+fs.mkdirSync(process.env.XDG_CACHE_HOME || `${config.dataDir}/cache`, {
+  recursive: true,
+});
 
 server.listen(config.port, () => {
   console.log(`Server listening on port ${config.port}`);
