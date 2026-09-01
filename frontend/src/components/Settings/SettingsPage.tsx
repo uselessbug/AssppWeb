@@ -21,6 +21,10 @@ interface ServerInfo {
   autoCleanupMaxMB?: number;
   maxDownloadMB?: number;
   downloadThreads?: number;
+  unsafeAllowPublicAppleAuth?: boolean;
+  sapAuthHelperPath?: string;
+  sapAuthTimeoutMs?: number;
+  sapAuthMaxConcurrency?: number;
 }
 
 const cardClass =
@@ -251,6 +255,27 @@ export default function SettingsPage() {
                   </SettingsInfoRow>
                   <SettingsInfoRow label="DOWNLOAD_THREADS" mono>
                     {serverInfo.downloadThreads ?? 8}
+                  </SettingsInfoRow>
+                  <SettingsInfoRow
+                    label="UNSAFE_ALLOW_PUBLIC_APPLE_AUTH"
+                    mono
+                  >
+                    {serverInfo.unsafeAllowPublicAppleAuth
+                      ? t("settings.server.enabled")
+                      : t("settings.server.disabled")}
+                  </SettingsInfoRow>
+                  <SettingsInfoRow
+                    label="SAP_AUTH_HELPER_PATH"
+                    mono
+                    valueTitle={serverInfo.sapAuthHelperPath}
+                  >
+                    {serverInfo.sapAuthHelperPath}
+                  </SettingsInfoRow>
+                  <SettingsInfoRow label="SAP_AUTH_TIMEOUT_MS" mono>
+                    {serverInfo.sapAuthTimeoutMs}
+                  </SettingsInfoRow>
+                  <SettingsInfoRow label="SAP_AUTH_MAX_CONCURRENCY" mono>
+                    {serverInfo.sapAuthMaxConcurrency}
                   </SettingsInfoRow>
                 </dl>
               </div>

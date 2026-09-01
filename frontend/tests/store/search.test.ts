@@ -1,8 +1,16 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { searchApps } from "../../src/api/search";
 import { useSearch } from "../../src/hooks/useSearch";
+
+vi.mock("../../src/api/search", () => ({
+  searchApps: vi.fn(),
+  lookupApp: vi.fn(),
+}));
 
 describe("search preferences", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(searchApps).mockResolvedValue([]);
     localStorage.clear();
     useSearch.setState({
       term: "",
@@ -11,6 +19,7 @@ describe("search preferences", () => {
       results: [],
       loading: false,
       error: null,
+      hasSearched: false,
     });
   });
 
@@ -37,12 +46,28 @@ describe("search preferences", () => {
     expect(localStorage.getItem("asspp-search-entity")).toBe("iPad");
   });
 
+  it("distinguishes the initial state from a completed empty search", async () => {
+    expect(useSearch.getState().hasSearched).toBe(false);
+
+    await useSearch.getState().search("missing", "US", "iPhone");
+
+    expect(searchApps).toHaveBeenCalledWith("missing", "US", "iPhone");
+    expect(useSearch.getState().results).toEqual([]);
+    expect(useSearch.getState().hasSearched).toBe(true);
+  });
+
   it("keeps search preferences when clearing the current search", () => {
-    useSearch.setState({ term: "test", country: "JP", entity: "iPad" });
+    useSearch.setState({
+      term: "test",
+      country: "JP",
+      entity: "iPad",
+      hasSearched: true,
+    });
     useSearch.getState().clear();
 
     expect(useSearch.getState().term).toBe("");
     expect(useSearch.getState().country).toBe("JP");
     expect(useSearch.getState().entity).toBe("iPad");
+    expect(useSearch.getState().hasSearched).toBe(false);
   });
 });

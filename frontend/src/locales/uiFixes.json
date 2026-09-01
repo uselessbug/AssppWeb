@@ -1,5 +1,18 @@
 {
   "en-US": {
+    "search": {
+      "placeholder": "Search by name, App Store URL, App ID, or Bundle ID...",
+      "emptyDesc": "Search by name, App Store URL, App ID, or Bundle ID to find apps and licenses."
+    },
+    "accounts": {
+      "addForm": {
+        "email": "Apple ID",
+        "emailPlaceholder": "Apple ID"
+      },
+      "detail": {
+        "email": "Sign-in ID"
+      }
+    },
     "downloads": {
       "checkUpdatesNone": "No updates found."
     },
@@ -10,6 +23,19 @@
     }
   },
   "zh-CN": {
+    "search": {
+      "placeholder": "按名称、App Store 链接、App ID 或 Bundle ID 搜索...",
+      "emptyDesc": "可按名称、App Store 链接、App ID 或 Bundle ID 查找应用和许可。"
+    },
+    "accounts": {
+      "addForm": {
+        "email": "Apple ID",
+        "emailPlaceholder": "Apple ID"
+      },
+      "detail": {
+        "email": "登录标识"
+      }
+    },
     "downloads": {
       "checkUpdatesNone": "没有发现新版本。"
     },
@@ -20,6 +46,19 @@
     }
   },
   "zh-TW": {
+    "search": {
+      "placeholder": "依名稱、App Store 連結、App ID 或 Bundle ID 搜尋...",
+      "emptyDesc": "可依名稱、App Store 連結、App ID 或 Bundle ID 尋找 App 與授權。"
+    },
+    "accounts": {
+      "addForm": {
+        "email": "Apple ID",
+        "emailPlaceholder": "Apple ID"
+      },
+      "detail": {
+        "email": "登入識別碼"
+      }
+    },
     "downloads": {
       "checkUpdatesNone": "沒有發現新版本。"
     },
@@ -30,6 +69,19 @@
     }
   },
   "ja": {
+    "search": {
+      "placeholder": "名前、App Store URL、App ID、Bundle IDで検索...",
+      "emptyDesc": "名前、App Store URL、App ID、Bundle IDからアプリとライセンスを検索できます。"
+    },
+    "accounts": {
+      "addForm": {
+        "email": "Apple ID",
+        "emailPlaceholder": "Apple ID"
+      },
+      "detail": {
+        "email": "サインインID"
+      }
+    },
     "downloads": {
       "checkUpdatesNone": "新しいバージョンは見つかりませんでした。"
     },
@@ -40,6 +92,19 @@
     }
   },
   "ko": {
+    "search": {
+      "placeholder": "이름, App Store URL, App ID 또는 Bundle ID로 검색...",
+      "emptyDesc": "이름, App Store URL, App ID 또는 Bundle ID로 앱과 라이선스를 찾을 수 있습니다."
+    },
+    "accounts": {
+      "addForm": {
+        "email": "Apple ID",
+        "emailPlaceholder": "Apple ID"
+      },
+      "detail": {
+        "email": "로그인 ID"
+      }
+    },
     "downloads": {
       "checkUpdatesNone": "새 버전이 없습니다."
     },
@@ -50,6 +115,19 @@
     }
   },
   "ru": {
+    "search": {
+      "placeholder": "Поиск по названию, ссылке App Store, App ID или Bundle ID...",
+      "emptyDesc": "Ищите приложения и лицензии по названию, ссылке App Store, App ID или Bundle ID."
+    },
+    "accounts": {
+      "addForm": {
+        "email": "Apple ID",
+        "emailPlaceholder": "Apple ID"
+      },
+      "detail": {
+        "email": "Идентификатор входа"
+      }
+    },
     "downloads": {
       "checkUpdatesNone": "Обновления не найдены."
     },

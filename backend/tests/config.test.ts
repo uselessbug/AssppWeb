@@ -9,4 +9,12 @@ describe("config", () => {
   it("should have default data directory", () => {
     expect(config.dataDir).toBe("./data");
   });
+
+  it("should have default SAP authentication timeout", () => {
+    expect(config.sapAuthTimeoutMs).toBe(120000);
+  });
+
+  it("should have default SAP authentication concurrency", () => {
+    expect(config.sapAuthMaxConcurrency).toBe(4);
+  });
 });

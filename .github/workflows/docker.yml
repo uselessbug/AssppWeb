@@ -10,8 +10,20 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  metadata:
+    name: Prepare build metadata
+    runs-on: ubuntu-24.04
+    outputs:
+      build_date: ${{ steps.meta.outputs.build_date }}
+    steps:
+      - id: meta
+        shell: bash
+        run: |
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build ${{ matrix.arch }}
+    needs: metadata
     strategy:
       fail-fast: false
       matrix:
@@ -67,6 +79,9 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ needs.metadata.outputs.build_date }}
           outputs: type=image,name=${{ steps.image.outputs.ref }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}

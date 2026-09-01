@@ -24,6 +24,7 @@ export interface Cookie {
   value: string;
   path: string;
   domain?: string;
+  hostOnly?: boolean;
   expiresAt?: number;
   httpOnly: boolean;
   secure: boolean;

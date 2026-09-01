@@ -14,6 +14,23 @@ interface RemoteVersionMetadata {
   releaseDate: string;
 }
 
+export class VersionLookupError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+  ) {
+    super(message);
+    this.name = "VersionLookupError";
+  }
+}
+
+export function isVersionLookupAuthExpired(error: unknown): boolean {
+  return (
+    error instanceof VersionLookupError &&
+    (error.code === "2034" || error.code === "2042" || error.code === "1008")
+  );
+}
+
 export async function getVersionMetadata(
   account: Account,
   app: Software,
@@ -56,12 +73,12 @@ export async function getVersionMetadata(
       cookies,
     });
 
-    cookies = extractAndMergeCookies(response.rawHeaders, cookies);
+    cookies = extractAndMergeCookies(response.rawHeaders, cookies, requestHost);
 
     if (response.status === 302) {
       const location = response.headers["location"];
       if (!location) {
-        throw new Error("Failed to retrieve redirect location");
+        throw new VersionLookupError("Failed to retrieve redirect location");
       }
       const url = new URL(location);
       requestHost = url.hostname;
@@ -71,13 +88,25 @@ export async function getVersionMetadata(
     }
 
     const dict = parsePlist(response.body) as Record<string, any>;
+    const failureType =
+      dict.failureType === undefined || dict.failureType === null
+        ? undefined
+        : String(dict.failureType);
+    const customerMessage = dict.customerMessage as string | undefined;
 
-    // Preserve upstream ApplePackage 1.2.7 behavior: volumeStore can return
-    // failureType 5002, in which case retry once via the redownload endpoint.
+    if (customerMessage === "Your password has changed.") {
+      throw new VersionLookupError("Password token is expired", "2034");
+    }
+
     if (
-      String(dict.failureType ?? "") === RETRYABLE_FAILURE_TYPE &&
-      !triedRedownload
+      failureType === "2034" ||
+      failureType === "2042" ||
+      failureType === "1008"
     ) {
+      throw new VersionLookupError("Password token is expired", failureType);
+    }
+
+    if (failureType === RETRYABLE_FAILURE_TYPE && !triedRedownload) {
       triedRedownload = true;
       endpoint = redownloadEndpoint(deviceId);
       requestHost = endpoint.host;
@@ -86,31 +115,30 @@ export async function getVersionMetadata(
       continue;
     }
 
+    if (failureType) {
+      throw new VersionLookupError(
+        customerMessage ?? `Version metadata lookup failed: ${failureType}`,
+        failureType,
+      );
+    }
+
     const songList = dict.songList as Record<string, any>[] | undefined;
     if (!songList || songList.length === 0) {
-      throw new Error("No items in response");
+      throw new VersionLookupError("No items in response");
     }
 
     const downloadURL = songList[0].URL as string | undefined;
     if (!downloadURL) {
-      throw new Error("Missing download URL");
+      throw new VersionLookupError("Missing download URL");
     }
 
-    // Historical App Store response metadata can be stale. Use the selected
-    // IPA itself as the source of truth and only fetch the ZIP ranges needed
-    // for Payload/*.app/Info.plist on the backend.
     const metadata = await apiPost<RemoteVersionMetadata>(
       "/api/version-metadata",
-      {
-        downloadURL,
-      },
+      { downloadURL },
     );
 
-    return {
-      metadata,
-      updatedCookies: cookies,
-    };
+    return { metadata, updatedCookies: cookies };
   }
 
-  throw new Error("Too many redirects");
+  throw new VersionLookupError("Too many redirects");
 }

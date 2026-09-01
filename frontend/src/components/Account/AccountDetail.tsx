@@ -6,7 +6,10 @@ import Spinner from "../common/Spinner";
 import LoadingState from "../common/LoadingState";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useToastStore } from "../../store/toast";
-import { authenticate, AuthenticationError } from "../../apple/authenticate";
+import {
+  reauthenticateAccount,
+  ReauthenticationCodeRequiredError,
+} from "../../apple/reauthenticate";
 import { getErrorMessage } from "../../utils/error";
 import { storeIdToCountry } from "../../apple/config";
 
@@ -27,6 +30,7 @@ export default function AccountDetail() {
   const [reauthing, setReauthing] = useState(false);
   const [reauthCode, setReauthCode] = useState("");
   const [needsCode, setNeedsCode] = useState(false);
+  const [freshReauth, setFreshReauth] = useState(false);
 
   useEffect(() => {
     loadAccounts();
@@ -64,20 +68,22 @@ export default function AccountDetail() {
     setReauthing(true);
 
     try {
-      const updated = await authenticate(
-        account.email,
-        account.password,
+      const updated = await reauthenticateAccount(
+        account,
         needsCode && reauthCode ? reauthCode : undefined,
-        account.cookies,
-        account.deviceIdentifier,
+        freshReauth,
+        () => addToast(t("toast.reauthRetrying"), "info"),
       );
       await updateAccount(updated);
       setNeedsCode(false);
+      setFreshReauth(false);
       setReauthCode("");
       addToast(t("accounts.detail.reauthSuccess"), "success");
     } catch (err) {
-      if (err instanceof AuthenticationError && err.codeRequired) {
+      if (err instanceof ReauthenticationCodeRequiredError) {
+        setFreshReauth(err.freshSession);
         setNeedsCode(true);
+        if (err.freshSession) setReauthCode("");
         addToast(err.message, "error");
       } else {
         addToast(
@@ -175,7 +181,7 @@ export default function AccountDetail() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleReauth}
-            disabled={reauthing}
+            disabled={reauthing || needsCode}
             className="flex min-h-11 items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {reauthing && <Spinner />}

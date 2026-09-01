@@ -3,6 +3,7 @@ import type { Cookie } from "../types";
 export function extractAndMergeCookies(
   rawHeaders: Iterable<[string, string]>,
   existingCookies: Cookie[],
+  originHost?: string,
 ): Cookie[] {
   const setCookies: string[] = [];
   for (const [key, value] of rawHeaders) {
@@ -11,7 +12,10 @@ export function extractAndMergeCookies(
     }
   }
   if (setCookies.length > 0) {
-    return mergeCookies(existingCookies, parseCookieHeaders(setCookies));
+    return mergeCookies(
+      existingCookies,
+      parseCookieHeaders(setCookies, originHost),
+    );
   }
   return existingCookies;
 }
@@ -21,13 +25,30 @@ export function mergeCookies(
   newCookies: Cookie[],
 ): Cookie[] {
   const dict = new Map<string, Cookie>();
+  const now = Date.now() / 1000;
   for (const cookie of existing) {
-    dict.set(cookie.name, cookie);
+    if (cookie.expiresAt !== undefined && cookie.expiresAt <= now) continue;
+    dict.set(cookieKey(cookie), cookie);
   }
   for (const cookie of newCookies) {
-    dict.set(cookie.name, cookie);
+    const key = cookieKey(cookie);
+    if (cookie.expiresAt !== undefined && cookie.expiresAt <= now) {
+      dict.delete(key);
+      continue;
+    }
+    dict.set(key, cookie);
   }
   return Array.from(dict.values());
+}
+
+function canonicalCookieDomain(domain: string | undefined): string {
+  return (domain ?? "").trim().replace(/^\./, "").toLowerCase();
+}
+
+function cookieKey(cookie: Cookie): string {
+  return [cookie.name, canonicalCookieDomain(cookie.domain), cookie.path || "/"].join(
+    "|",
+  );
 }
 
 export function buildCookieHeader(cookies: Cookie[], url: string): string {
@@ -50,7 +71,11 @@ export function buildCookieHeader(cookies: Cookie[], url: string): string {
     if (!cookie.name || !cookie.value) continue;
 
     if (cookie.domain) {
-      if (!matchesDomain(cookie.domain, host)) continue;
+      if (cookie.hostOnly === true) {
+        if (canonicalCookieDomain(cookie.domain) !== host.toLowerCase()) continue;
+      } else if (!matchesDomain(cookie.domain, host)) {
+        continue;
+      }
     }
 
     if (!matchesPath(cookie.path, path)) continue;
@@ -65,7 +90,10 @@ export function buildCookieHeader(cookies: Cookie[], url: string): string {
   return valid.join("; ");
 }
 
-export function parseCookieHeaders(setCookieHeaders: string[]): Cookie[] {
+export function parseCookieHeaders(
+  setCookieHeaders: string[],
+  originHost?: string,
+): Cookie[] {
   const cookies: Cookie[] = [];
 
   for (const header of setCookieHeaders) {
@@ -81,7 +109,8 @@ export function parseCookieHeaders(setCookieHeaders: string[]): Cookie[] {
     if (!name) continue;
 
     let path = "/";
-    let domain: string | undefined;
+    let domain: string | undefined = originHost?.toLowerCase();
+    let hostOnly = originHost !== undefined;
     let expiresAt: number | undefined;
     let httpOnly = false;
     let secure = false;
@@ -99,7 +128,8 @@ export function parseCookieHeaders(setCookieHeaders: string[]): Cookie[] {
           path = attrVal || "/";
           break;
         case "domain":
-          domain = attrVal.startsWith(".") ? attrVal.substring(1) : attrVal;
+          domain = canonicalCookieDomain(attrVal);
+          hostOnly = false;
           break;
         case "max-age": {
           const maxAge = parseInt(attrVal, 10);
@@ -124,14 +154,23 @@ export function parseCookieHeaders(setCookieHeaders: string[]): Cookie[] {
       }
     }
 
-    cookies.push({ name, value, path, domain, expiresAt, httpOnly, secure });
+    cookies.push({
+      name,
+      value,
+      path,
+      domain,
+      ...(hostOnly ? { hostOnly: true } : {}),
+      expiresAt,
+      httpOnly,
+      secure,
+    });
   }
 
   return cookies;
 }
 
 function matchesDomain(cookieDomain: string, requestHost: string): boolean {
-  const normalized = cookieDomain.toLowerCase();
+  const normalized = canonicalCookieDomain(cookieDomain);
   const host = requestHost.toLowerCase();
   return host === normalized || host.endsWith("." + normalized);
 }

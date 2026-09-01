@@ -17,6 +17,10 @@ router.get("/settings", (_req: Request, res: Response) => {
     autoCleanupMaxMB: config.autoCleanupMaxMB,
     maxDownloadMB: config.maxDownloadMB,
     downloadThreads: DOWNLOAD_THREADS,
+    unsafeAllowPublicAppleAuth: config.unsafeAllowPublicAppleAuth,
+    sapAuthHelperPath: config.sapAuthHelperPath,
+    sapAuthTimeoutMs: config.sapAuthTimeoutMs,
+    sapAuthMaxConcurrency: config.sapAuthMaxConcurrency,
   });
 });
 
