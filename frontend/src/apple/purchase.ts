@@ -15,6 +15,13 @@ export class PurchaseError extends Error {
   }
 }
 
+export function isPurchaseAuthExpired(error: unknown): boolean {
+  return (
+    error instanceof PurchaseError &&
+    (error.code === "2034" || error.code === "2042" || error.code === "1008")
+  );
+}
+
 export async function purchaseApp(
   account: Account,
   app: Software,
@@ -26,7 +33,6 @@ export async function purchaseApp(
   try {
     return await purchaseWithParams(account, app, "STDQ");
   } catch (e) {
-    // Rely on error code instead of translated message string to prevent matching issues
     if (e instanceof PurchaseError && e.code === "2059") {
       return await purchaseWithParams(account, app, "GAME");
     }
@@ -64,7 +70,7 @@ async function purchaseWithParams(
     "Content-Type": "application/x-apple-plist",
     "iCloud-DSID": account.directoryServicesIdentifier,
     "X-Dsid": account.directoryServicesIdentifier,
-    "X-Apple-Store-Front": `${account.store}-1`,
+    "X-Apple-Store-Front": account.store,
     "X-Token": account.passwordToken,
   };
 
@@ -80,48 +86,50 @@ async function purchaseWithParams(
   const updatedCookies = extractAndMergeCookies(
     response.rawHeaders,
     account.cookies,
+    host,
   );
 
   const dict = parsePlist(response.body) as Record<string, any>;
+  const failureType =
+    dict.failureType === undefined || dict.failureType === null
+      ? undefined
+      : String(dict.failureType);
+  const customerMessage = dict.customerMessage as string | undefined;
+  const action = dict.action as Record<string, any> | undefined;
+  const actionUrl = (action?.url || action?.URL) as string | undefined;
 
-  if (dict.failureType) {
-    const failureType = String(dict.failureType);
-    const customerMessage = dict.customerMessage as string | undefined;
+  if (actionUrl?.endsWith("termsPage")) {
+    throw new PurchaseError(
+      i18n.t("errors.purchase.termsRequired", { url: actionUrl }),
+      failureType,
+    );
+  }
+
+  if (customerMessage === "Your password has changed.") {
+    throw new PurchaseError(i18n.t("errors.purchase.passwordExpired"), "2034");
+  }
+
+  if (customerMessage === "Subscription Required") {
+    throw new PurchaseError(
+      i18n.t("errors.purchase.subscriptionRequired"),
+      failureType,
+    );
+  }
+
+  if (failureType) {
     switch (failureType) {
       case "2059":
         throw new PurchaseError(i18n.t("errors.purchase.unavailable"), "2059");
       case "2034":
       case "2042":
+      case "1008":
         throw new PurchaseError(
           i18n.t("errors.purchase.passwordExpired"),
           failureType,
         );
+      case "5002":
+        return { updatedCookies };
       default: {
-        if (customerMessage === "Your password has changed.") {
-          throw new PurchaseError(
-            i18n.t("errors.purchase.passwordExpired"),
-            failureType,
-          );
-        }
-        if (customerMessage === "Subscription Required") {
-          throw new PurchaseError(
-            i18n.t("errors.purchase.subscriptionRequired"),
-            failureType,
-          );
-        }
-        // Check for terms page action
-        const action = dict.action as Record<string, any> | undefined;
-        if (action) {
-          const actionUrl = (action.url || action.URL) as string | undefined;
-          if (actionUrl && actionUrl.endsWith("termsPage")) {
-            throw new PurchaseError(
-              i18n.t("errors.purchase.termsRequired", { url: actionUrl }),
-              failureType,
-            );
-          }
-        }
-
-        // Handle unknown error specific fallback mappings
         let msg = customerMessage;
         if (
           msg === "An unknown error has occurred" ||
@@ -129,13 +137,27 @@ async function purchaseWithParams(
         ) {
           msg = i18n.t("errors.purchase.unknownError");
         }
-
         throw new PurchaseError(
           msg ?? i18n.t("errors.purchase.failed", { failureType }),
           failureType,
         );
       }
     }
+  }
+
+  if (customerMessage) {
+    const message =
+      customerMessage === "An unknown error has occurred" ||
+      customerMessage === "An unknown error has occurred."
+        ? i18n.t("errors.purchase.unknownError")
+        : customerMessage;
+    throw new PurchaseError(message);
+  }
+
+  // ipatool treats a semantically bare HTTP 500 as already-owned only after
+  // all explicit plist failure semantics above have been ruled out.
+  if (response.status === 500) {
+    return { updatedCookies };
   }
 
   const jingleDocType = dict.jingleDocType as string | undefined;

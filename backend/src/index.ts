@@ -21,10 +21,10 @@ const app = express();
 
 // Middleware
 app.use(httpsRedirect);
+app.use("/api", accessAuth);
 app.use(express.json({ limit: "50mb" }));
 
 // API routes
-app.use("/api", accessAuth);
 app.use("/api", authRoutes);
 app.use("/api", searchRoutes);
 app.use("/api", downloadRoutes);

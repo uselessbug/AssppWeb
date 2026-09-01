@@ -2,9 +2,9 @@ import { useTranslation } from "react-i18next";
 import { useAccounts } from "./useAccounts";
 import { useToastStore } from "../store/toast";
 import { useDownloadsStore } from "../store/downloads";
-import { getDownloadInfo } from "../apple/download";
-import { purchaseApp } from "../apple/purchase";
-import { authenticate } from "../apple/authenticate";
+import { getDownloadInfo, isDownloadAuthExpired } from "../apple/download";
+import { isPurchaseAuthExpired, purchaseApp } from "../apple/purchase";
+import { reauthenticateAccount } from "../apple/reauthenticate";
 import { apiGet } from "../api/client";
 import { accountHash } from "../utils/account";
 import { getErrorMessage } from "../utils/error";
@@ -20,6 +20,12 @@ export function useDownloadAction() {
   const addToast = useToastStore((s) => s.addToast);
   const createDownloadTask = useDownloadsStore((s) => s.startDownload);
   const { t } = useTranslation();
+
+  async function reauthenticate(account: Account): Promise<Account> {
+    const renewed = await reauthenticateAccount(account);
+    await updateAccount(renewed);
+    return renewed;
+  }
 
   async function startDownload(
     account: Account,
@@ -50,13 +56,21 @@ export function useDownloadAction() {
       // Settings fetch failed — backend will still enforce the limit
     }
 
-    const { output, updatedCookies } = await getDownloadInfo(
-      account,
-      app,
-      versionId,
-    );
-    await updateAccount({ ...account, cookies: updatedCookies });
-    const hash = await accountHash(account);
+    let currentAccount = account;
+    let downloadResult: Awaited<ReturnType<typeof getDownloadInfo>>;
+    try {
+      downloadResult = await getDownloadInfo(currentAccount, app, versionId);
+    } catch (error) {
+      if (!isDownloadAuthExpired(error)) {
+        throw error;
+      }
+      currentAccount = await reauthenticate(currentAccount);
+      downloadResult = await getDownloadInfo(currentAccount, app, versionId);
+    }
+
+    const { output, updatedCookies } = downloadResult;
+    await updateAccount({ ...currentAccount, cookies: updatedCookies });
+    const hash = await accountHash(currentAccount);
 
     await createDownloadTask({
       software: { ...app, version: output.bundleShortVersionString },
@@ -77,25 +91,18 @@ export function useDownloadAction() {
     const ctx = getAccountContext(account, t);
     const appName = app.name;
 
-    // Silently renew the password token before purchasing.
-    // This prevents "token expired" (2034/2042) errors that would
-    // otherwise require the user to manually re-authenticate.
     let currentAccount = account;
+    let result: Awaited<ReturnType<typeof purchaseApp>>;
     try {
-      const renewed = await authenticate(
-        account.email,
-        account.password,
-        undefined,
-        account.cookies,
-        account.deviceIdentifier,
-      );
-      await updateAccount(renewed);
-      currentAccount = renewed;
-    } catch {
-      // Ignore — proceed with existing token
+      result = await purchaseApp(currentAccount, app);
+    } catch (error) {
+      if (!isPurchaseAuthExpired(error)) {
+        throw error;
+      }
+      currentAccount = await reauthenticate(currentAccount);
+      result = await purchaseApp(currentAccount, app);
     }
 
-    const result = await purchaseApp(currentAccount, app);
     await updateAccount({ ...currentAccount, cookies: result.updatedCookies });
 
     addToast(

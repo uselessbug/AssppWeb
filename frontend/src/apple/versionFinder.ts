@@ -8,6 +8,23 @@ import {
   volumeStoreEndpoint,
 } from "./config";
 
+export class VersionFinderError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+  ) {
+    super(message);
+    this.name = "VersionFinderError";
+  }
+}
+
+export function isVersionAuthExpired(error: unknown): boolean {
+  return (
+    error instanceof VersionFinderError &&
+    (error.code === "2034" || error.code === "2042" || error.code === "1008")
+  );
+}
+
 export async function listVersions(
   account: Account,
   app: Software,
@@ -45,12 +62,12 @@ export async function listVersions(
       cookies,
     });
 
-    cookies = extractAndMergeCookies(response.rawHeaders, cookies);
+    cookies = extractAndMergeCookies(response.rawHeaders, cookies, requestHost);
 
     if (response.status === 302) {
       const location = response.headers["location"];
       if (!location) {
-        throw new Error("Failed to retrieve redirect location");
+        throw new VersionFinderError("Failed to retrieve redirect location");
       }
       const url = new URL(location);
       requestHost = url.hostname;
@@ -60,55 +77,69 @@ export async function listVersions(
     }
 
     const dict = parsePlist(response.body) as Record<string, any>;
+    const failureType =
+      dict.failureType === undefined || dict.failureType === null
+        ? undefined
+        : String(dict.failureType);
+    const customerMessage = dict.customerMessage as string | undefined;
+
+    if (customerMessage === "Your password has changed.") {
+      throw new VersionFinderError("Password token is expired", "2034");
+    }
+
+    if (
+      failureType === "2034" ||
+      failureType === "2042" ||
+      failureType === "1008"
+    ) {
+      throw new VersionFinderError("Password token is expired", failureType);
+    }
 
     const songList = dict.songList as Record<string, any>[] | undefined;
     if (!songList || songList.length === 0) {
-      if (dict.failureType) {
-        const failureType = String(dict.failureType);
-
-        // volumeStore intermittently returns 5002; retry once via the
-        // redownload dispatch endpoint, which serves the same payload.
-        if (failureType === RETRYABLE_FAILURE_TYPE && !triedRedownload) {
-          triedRedownload = true;
-          endpoint = redownloadEndpoint(deviceId);
-          requestHost = endpoint.host;
-          requestPath = endpoint.path;
-          redirectAttempt = 0;
-          continue;
-        }
-
-        switch (failureType) {
-          case "2034":
-            throw new Error("Password token is expired");
-          case "9610":
-            throw new Error("License required - purchase the app first");
-          default: {
-            const msg = dict.customerMessage as string | undefined;
-            throw new Error(msg ?? "No items in response");
-          }
-        }
+      if (failureType === RETRYABLE_FAILURE_TYPE && !triedRedownload) {
+        triedRedownload = true;
+        endpoint = redownloadEndpoint(deviceId);
+        requestHost = endpoint.host;
+        requestPath = endpoint.path;
+        redirectAttempt = 0;
+        continue;
       }
-      throw new Error("No items in response");
+
+      if (failureType === "9610") {
+        throw new VersionFinderError(
+          "License required - purchase the app first",
+          "9610",
+        );
+      }
+
+      if (failureType) {
+        throw new VersionFinderError(
+          customerMessage ?? "No items in response",
+          failureType,
+        );
+      }
+      throw new VersionFinderError("No items in response");
     }
 
     const item = songList[0];
     const metadata = item.metadata as Record<string, any>;
     if (!metadata) {
-      throw new Error("Missing version identifiers");
+      throw new VersionFinderError("Missing version identifiers");
     }
 
     const identifiers = metadata.softwareVersionExternalIdentifiers as any[];
     if (!identifiers) {
-      throw new Error("Missing version identifiers");
+      throw new VersionFinderError("Missing version identifiers");
     }
 
     const versions = identifiers.map((id) => String(id)).reverse();
     if (versions.length === 0) {
-      throw new Error("No versions found");
+      throw new VersionFinderError("No versions found");
     }
 
     return { versions, updatedCookies: cookies };
   }
 
-  throw new Error("Too many redirects");
+  throw new VersionFinderError("Too many redirects");
 }

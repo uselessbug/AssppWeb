@@ -7,6 +7,7 @@ wisp.options.hostname_whitelist = [
   /^auth\.itunes\.apple\.com$/,
   /^buy\.itunes\.apple\.com$/,
   /^init\.itunes\.apple\.com$/,
+  /^downloaddispatch\.itunes\.apple\.com$/,
   /^p\d+-buy\.itunes\.apple\.com$/,
 ];
 wisp.options.port_whitelist = [443];

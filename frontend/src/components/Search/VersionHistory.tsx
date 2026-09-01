@@ -6,9 +6,13 @@ import AppIcon from "../common/AppIcon";
 import Spinner from "../common/Spinner";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
-import { listVersions } from "../../apple/versionFinder";
+import {
+  isVersionAuthExpired,
+  listVersions,
+} from "../../apple/versionFinder";
+import { getVersionMetadataWithReauth } from "../../apple/versionMetadataFlow";
+import { reauthenticateAccount } from "../../apple/reauthenticate";
 import { storeIdToCountry } from "../../apple/config";
-import { getVersionMetadata } from "../../apple/versionLookup";
 import { getErrorMessage } from "../../utils/error";
 import { useToastStore } from "../../store/toast";
 import type { Software, VersionMetadata } from "../../types";
@@ -58,9 +62,21 @@ export default function VersionHistory() {
     if (!account || !app) return;
     setLoading(true);
     try {
-      const result = await listVersions(account, app);
+      let currentAccount = account;
+      let result: Awaited<ReturnType<typeof listVersions>>;
+      try {
+        result = await listVersions(currentAccount, app);
+      } catch (error) {
+        if (!isVersionAuthExpired(error)) throw error;
+        currentAccount = await reauthenticateAccount(currentAccount);
+        await updateAccount(currentAccount);
+        result = await listVersions(currentAccount, app);
+      }
       setVersions(result.versions);
-      await updateAccount({ ...account, cookies: result.updatedCookies });
+      await updateAccount({
+        ...currentAccount,
+        cookies: result.updatedCookies,
+      });
     } catch (e) {
       addToast(getErrorMessage(e, t("search.versions.loadFailed")), "error");
     } finally {
@@ -72,9 +88,17 @@ export default function VersionHistory() {
     if (!account || !app || versionMeta[versionId]) return;
     setLoadingMeta((prev) => ({ ...prev, [versionId]: true }));
     try {
-      const result = await getVersionMetadata(account, app, versionId);
+      const result = await getVersionMetadataWithReauth(
+        account,
+        app,
+        versionId,
+        updateAccount,
+      );
       setVersionMeta((prev) => ({ ...prev, [versionId]: result.metadata }));
-      await updateAccount({ ...account, cookies: result.updatedCookies });
+      await updateAccount({
+        ...result.account,
+        cookies: result.updatedCookies,
+      });
     } catch {
       // Silently fail for individual version metadata
     } finally {

@@ -1,19 +1,77 @@
 import { authHeaders } from "../api/client";
+import i18n from "../i18n";
 import type { Account, Cookie } from "../types";
+
+export type AuthenticationErrorKind =
+  | "authentication"
+  | "infrastructure"
+  | "request"
+  | "network"
+  | "invalid-response"
+  | "unknown";
+
+export type AuthenticationFailureReason =
+  | "verification_required"
+  | "authentication_failed"
+  | "invalid_request"
+  | "helper_not_found"
+  | "helper_timeout"
+  | "helper_invalid_response"
+  | "helper_busy"
+  | "access_protection_required"
+  | "helper_failed";
+
+const AUTH_FAILURE_I18N_KEYS: Record<AuthenticationFailureReason, string> = {
+  verification_required: "errors.auth.sapVerificationRequired",
+  authentication_failed: "errors.auth.sapAuthenticationFailed",
+  invalid_request: "errors.auth.sapInvalidRequest",
+  helper_not_found: "errors.auth.sapHelperNotFound",
+  helper_timeout: "errors.auth.sapHelperTimeout",
+  helper_invalid_response: "errors.auth.sapHelperInvalidResponse",
+  helper_busy: "errors.auth.sapHelperBusy",
+  access_protection_required: "errors.auth.sapAccessProtectionRequired",
+  helper_failed: "errors.auth.sapHelperFailed",
+};
+
+export function localizedAuthenticationFailureMessage(
+  reason: string | undefined,
+  fallback: string,
+): string {
+  if (reason && reason in AUTH_FAILURE_I18N_KEYS) {
+    return i18n.t(
+      AUTH_FAILURE_I18N_KEYS[reason as AuthenticationFailureReason],
+    );
+  }
+  return fallback;
+}
 
 export class AuthenticationError extends Error {
   constructor(
     message: string,
     public readonly codeRequired: boolean = false,
+    public readonly kind: AuthenticationErrorKind = "unknown",
+    public readonly status?: number,
+    public readonly freshRetryEligible: boolean = kind === "authentication",
   ) {
     super(message);
     this.name = "AuthenticationError";
+  }
+
+  get eligibleForFreshRetry(): boolean {
+    return (
+      this.kind === "authentication" &&
+      !this.codeRequired &&
+      this.freshRetryEligible
+    );
   }
 }
 
 interface AuthenticationFailure {
   error?: string;
+  kind?: AuthenticationErrorKind;
+  reason?: string;
   codeRequired?: boolean;
+  eligibleForFreshRetry?: boolean;
 }
 
 type AuthenticatedAccount = Omit<Account, "password">;
@@ -41,6 +99,7 @@ export function sanitizeExistingCookies(cookies: Cookie[] | undefined): Cookie[]
         ...(typeof cookie.domain === "string" && cookie.domain
           ? { domain: cookie.domain }
           : {}),
+        ...(cookie.hostOnly === true ? { hostOnly: true } : {}),
         ...(expiresAt === undefined ? {} : { expiresAt }),
         httpOnly: cookie.httpOnly === true,
         secure: cookie.secure === true,
@@ -73,6 +132,8 @@ export async function authenticate(
   } catch (error) {
     throw new AuthenticationError(
       error instanceof Error ? error.message : String(error),
+      false,
+      "network",
     );
   }
 
@@ -80,9 +141,19 @@ export async function authenticate(
     const failure = (await response.json().catch(() => ({
       error: response.statusText,
     }))) as AuthenticationFailure;
+    const kind =
+      failure.kind === "authentication" ||
+      failure.kind === "infrastructure" ||
+      failure.kind === "request"
+        ? failure.kind
+        : "unknown";
+    const fallback = failure.error || "Apple authentication failed";
     throw new AuthenticationError(
-      failure.error || "Apple authentication failed",
+      localizedAuthenticationFailureMessage(failure.reason, fallback),
       failure.codeRequired === true,
+      kind,
+      response.status,
+      failure.eligibleForFreshRetry === true,
     );
   }
 
@@ -90,6 +161,9 @@ export async function authenticate(
   if (!account.passwordToken || !account.directoryServicesIdentifier) {
     throw new AuthenticationError(
       "Login response did not include an App Store session token",
+      false,
+      "invalid-response",
+      response.status,
     );
   }
 

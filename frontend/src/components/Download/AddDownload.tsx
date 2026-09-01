@@ -8,7 +8,11 @@ import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
 import { useToastStore } from "../../store/toast";
 import { lookupApp } from "../../api/search";
-import { listVersions } from "../../apple/versionFinder";
+import {
+  isVersionAuthExpired,
+  listVersions,
+} from "../../apple/versionFinder";
+import { reauthenticateAccount } from "../../apple/reauthenticate";
 import { firstAccountCountry } from "../../utils/account";
 import {
   readDownloadCountry,
@@ -118,9 +122,20 @@ export default function AddDownload() {
     if (!account || !app) return;
     setLoadingAction("versions");
     try {
-      const result = await listVersions(account, app);
+      let currentAccount = account;
+      let result: Awaited<ReturnType<typeof listVersions>>;
+      try {
+        result = await listVersions(currentAccount, app);
+      } catch (error) {
+        if (!isVersionAuthExpired(error)) {
+          throw error;
+        }
+        currentAccount = await reauthenticateAccount(currentAccount);
+        await updateAccount(currentAccount);
+        result = await listVersions(currentAccount, app);
+      }
       setVersions(result.versions);
-      await updateAccount({ ...account, cookies: result.updatedCookies });
+      await updateAccount({ ...currentAccount, cookies: result.updatedCookies });
       setStep("versions");
     } catch (e) {
       addToast(getErrorMessage(e, t("downloads.add.versionsFailed")), "error");

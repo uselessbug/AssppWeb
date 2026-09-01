@@ -7,7 +7,7 @@ import { useAccounts } from "../../hooks/useAccounts";
 import { useToastStore } from "../../store/toast";
 import { authenticate, AuthenticationError } from "../../apple/authenticate";
 import { getErrorMessage } from "../../utils/error";
-import { generateDeviceId } from "../../apple/config";
+import { generateDeviceId, normalizeDeviceId } from "../../apple/config";
 
 export default function AddAccountForm() {
   const navigate = useNavigate();
@@ -29,7 +29,7 @@ export default function AddAccountForm() {
     setLoading(true);
 
     try {
-      const cleanedDeviceId = deviceId.replace(/[: ]/g, "");
+      const cleanedDeviceId = normalizeDeviceId(deviceId);
       setDeviceId(cleanedDeviceId);
 
       const account = await authenticate(

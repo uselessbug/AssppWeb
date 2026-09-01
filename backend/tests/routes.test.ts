@@ -6,6 +6,7 @@ import settingsRoutes from "../src/routes/settings.js";
 import installRoutes from "../src/routes/install.js";
 import { getBaseUrl } from "../src/routes/install.js";
 import downloadRoutes from "../src/routes/downloads.js";
+import { config } from "../src/config.js";
 
 function createApp() {
   const app = express();
@@ -25,6 +26,12 @@ describe("Settings Route", () => {
     expect(res.body).toHaveProperty("dataDir");
     expect(res.body).toHaveProperty("uptime");
     expect(res.body).toHaveProperty("downloadThreads");
+    expect(res.body.unsafeAllowPublicAppleAuth).toBe(
+      config.unsafeAllowPublicAppleAuth,
+    );
+    expect(res.body.sapAuthHelperPath).toBe(config.sapAuthHelperPath);
+    expect(res.body.sapAuthTimeoutMs).toBe(config.sapAuthTimeoutMs);
+    expect(res.body.sapAuthMaxConcurrency).toBe(config.sapAuthMaxConcurrency);
   });
 });
 

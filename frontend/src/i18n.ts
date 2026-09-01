@@ -8,12 +8,21 @@ import jaTranslation from "./locales/ja.json";
 import koTranslation from "./locales/ko.json";
 import ruTranslation from "./locales/ru.json";
 import uiFixes from "./locales/uiFixes.json";
+import { authErrorTranslations } from "./locales/authErrors";
 import { downloadLibraryTranslations } from "./locales/downloadLibrary";
 import { toastUiTranslations } from "./locales/toastUi";
 
 function withUiExtras<
   T extends {
+    search: Record<string, unknown>;
+    accounts: {
+      addForm: Record<string, unknown>;
+      detail: Record<string, unknown>;
+    } & Record<string, unknown>;
     downloads: Record<string, unknown>;
+    errors: {
+      auth: Record<string, unknown>;
+    } & Record<string, unknown>;
     settings: {
       data: Record<string, unknown>;
     } & Record<string, unknown>;
@@ -21,17 +30,45 @@ function withUiExtras<
   },
   D extends Record<string, unknown>,
   U extends Record<string, unknown>,
+  A extends Record<string, unknown>,
   F extends {
+    search: Record<string, unknown>;
+    accounts: {
+      addForm: Record<string, unknown>;
+      detail: Record<string, unknown>;
+    };
     downloads: Record<string, unknown>;
     settings: { data: Record<string, unknown> };
   },
->(translation: T, downloadsExtra: D, toastExtra: U, fixes: F) {
+>(translation: T, downloadsExtra: D, toastExtra: U, authExtra: A, fixes: F) {
   return {
     ...translation,
+    search: {
+      ...translation.search,
+      ...fixes.search,
+    },
+    accounts: {
+      ...translation.accounts,
+      addForm: {
+        ...translation.accounts.addForm,
+        ...fixes.accounts.addForm,
+      },
+      detail: {
+        ...translation.accounts.detail,
+        ...fixes.accounts.detail,
+      },
+    },
     downloads: {
       ...translation.downloads,
       ...downloadsExtra,
       ...fixes.downloads,
+    },
+    errors: {
+      ...translation.errors,
+      auth: {
+        ...translation.errors.auth,
+        ...authExtra,
+      },
     },
     settings: {
       ...translation.settings,
@@ -53,6 +90,7 @@ const resources = {
       enUSTranslation,
       downloadLibraryTranslations["en-US"],
       toastUiTranslations["en-US"],
+      authErrorTranslations["en-US"],
       uiFixes["en-US"],
     ),
   },
@@ -61,6 +99,7 @@ const resources = {
       zhCNTranslation,
       downloadLibraryTranslations["zh-CN"],
       toastUiTranslations["zh-CN"],
+      authErrorTranslations["zh-CN"],
       uiFixes["zh-CN"],
     ),
   },
@@ -69,6 +108,7 @@ const resources = {
       zhTWTranslation,
       downloadLibraryTranslations["zh-TW"],
       toastUiTranslations["zh-TW"],
+      authErrorTranslations["zh-TW"],
       uiFixes["zh-TW"],
     ),
   },
@@ -77,6 +117,7 @@ const resources = {
       jaTranslation,
       downloadLibraryTranslations.ja,
       toastUiTranslations.ja,
+      authErrorTranslations.ja,
       uiFixes.ja,
     ),
   },
@@ -85,6 +126,7 @@ const resources = {
       koTranslation,
       downloadLibraryTranslations.ko,
       toastUiTranslations.ko,
+      authErrorTranslations.ko,
       uiFixes.ko,
     ),
   },
@@ -93,6 +135,7 @@ const resources = {
       ruTranslation,
       downloadLibraryTranslations.ru,
       toastUiTranslations.ru,
+      authErrorTranslations.ru,
       uiFixes.ru,
     ),
   },

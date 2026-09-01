@@ -1,6 +1,11 @@
 import { createHash } from "crypto";
 import { timingSafeEqual } from "crypto";
 
+function integerEnv(name: string, fallback: number, min: number): number {
+  const parsed = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isFinite(parsed) ? Math.max(min, parsed) : fallback;
+}
+
 export const config = {
   port: parseInt(process.env.PORT || "8080"),
   dataDir: process.env.DATA_DIR || "./data",
@@ -15,12 +20,15 @@ export const config = {
   // Build info (injected via Docker build args)
   buildCommit: process.env.BUILD_COMMIT || "unknown",
   buildDate: process.env.BUILD_DATE || "unknown",
-  // Access password protection (empty = disabled)
+  // Access password protection (empty = disabled for non-sensitive endpoints)
   accessPassword: process.env.ACCESS_PASSWORD || "",
+  unsafeAllowPublicAppleAuth:
+    process.env.UNSAFE_ALLOW_PUBLIC_APPLE_AUTH === "true",
   sapAuthHelperPath:
     process.env.SAP_AUTH_HELPER_PATH || "/usr/local/bin/asspp-sap-auth",
   sapAuthTimeoutMs:
-    parseInt(process.env.SAP_AUTH_TIMEOUT_MS || "300000", 10) || 300000,
+    parseInt(process.env.SAP_AUTH_TIMEOUT_MS || "120000", 10) || 120000,
+  sapAuthMaxConcurrency: integerEnv("SAP_AUTH_MAX_CONCURRENCY", 4, 1),
 };
 
 export const accessPasswordHash = config.accessPassword

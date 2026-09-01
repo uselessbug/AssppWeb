@@ -19,7 +19,7 @@ RUN npm run build
 FROM golang:1.25-alpine AS sap-auth-build
 RUN apk add --no-cache gcc musl-dev
 WORKDIR /src
-COPY sap-auth/go.mod ./
+COPY sap-auth/go.mod sap-auth/go.sum ./
 RUN go mod download
 COPY sap-auth/ ./
 RUN CGO_ENABLED=1 go build -trimpath -o /out/asspp-sap-auth .

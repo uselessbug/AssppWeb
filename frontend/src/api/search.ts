@@ -39,6 +39,21 @@ export function parseSearchInput(input: string): SearchInput {
   return { type: "term", value };
 }
 
+function searchByTerm(
+  term: string,
+  country: string,
+  entity: string,
+  limit: number,
+): Promise<Software[]> {
+  const params = new URLSearchParams({
+    term,
+    country,
+    entity: entity === "iPad" ? "iPadSoftware" : "software",
+    limit: String(limit),
+  });
+  return apiGet<Software[]>(`/api/search?${params}`);
+}
+
 export async function searchApps(
   term: string,
   country: string,
@@ -48,16 +63,19 @@ export async function searchApps(
   const input = parseSearchInput(term);
   if (input.type !== "term") {
     const app = await lookupApp(input.value, country);
-    return app ? [app] : [];
+    if (app) return [app];
+
+    const shouldFallbackToKeyword =
+      input.type === "bundleId" || /^\d+$/.test(term.trim());
+    if (!shouldFallbackToKeyword) return [];
   }
 
-  const params = new URLSearchParams({
-    term: input.value,
+  return searchByTerm(
+    input.type === "term" ? input.value : term.trim(),
     country,
-    entity: entity === "iPad" ? "iPadSoftware" : "software",
-    limit: String(limit),
-  });
-  return apiGet<Software[]>(`/api/search?${params}`);
+    entity,
+    limit,
+  );
 }
 
 export async function lookupApp(

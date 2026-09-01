@@ -24,6 +24,7 @@ export default function SearchPage() {
     results,
     loading,
     error,
+    hasSearched,
     search,
     setSearchParam,
     initializeCountry,
@@ -127,8 +128,10 @@ export default function SearchPage() {
               />
             </svg>
           }
-          title={t("search.empty")}
-          description={t("search.emptyDesc")}
+          title={
+            hasSearched ? t("search.product.notFound") : t("search.empty")
+          }
+          description={hasSearched ? undefined : t("search.emptyDesc")}
         />
       )}
 

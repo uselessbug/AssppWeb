@@ -141,9 +141,19 @@ export const countryCodeMap: Record<string, string> = {
 export function generateDeviceId(): string {
   const bytes = new Uint8Array(6);
   crypto.getRandomValues(bytes);
+  bytes[0] = (bytes[0] & 0xfc) | 0x02;
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+export function normalizeDeviceId(value: string): string {
+  const cleaned = value.trim().replace(/[: ]/g, "").toLowerCase();
+  if (!/^[a-f0-9]{12}$/.test(cleaned)) return cleaned;
+  const first = parseInt(cleaned.slice(0, 2), 16);
+  return (
+    ((first & 0xfc) | 0x02).toString(16).padStart(2, "0") + cleaned.slice(2)
+  );
 }
 
 export function storeAPIHost(pod?: string): string {
@@ -192,8 +202,11 @@ export function countryToStoreId(country: string): string | undefined {
 }
 
 export function storeIdToCountry(storeId: string): string | undefined {
+  const match = storeId.trim().match(/^(\d+)(?:$|[-,])/);
+  if (!match) return undefined;
+  const numericStoreId = match[1];
   for (const [code, id] of Object.entries(countryCodeMap)) {
-    if (id === storeId) return code;
+    if (id === numericStoreId) return code;
   }
   return undefined;
 }

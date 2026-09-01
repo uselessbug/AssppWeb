@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { apiGet } from "./client";
-import { lookupApp, parseSearchInput, searchApps } from "./search";
+import { apiGet } from "../../src/api/client";
+import { lookupApp, parseSearchInput, searchApps } from "../../src/api/search";
 
-vi.mock("./client", () => ({
+vi.mock("../../src/api/client", () => ({
   apiGet: vi.fn(),
 }));
 
@@ -46,9 +46,42 @@ describe("search API routing", () => {
     vi.mocked(apiGet).mockResolvedValue(null);
   });
 
-  it("uses lookup id for App Store IDs", async () => {
-    await searchApps("https://apps.apple.com/us/app/example/id123456", "US", "iPhone", 10);
+  it("uses lookup id for explicit App Store IDs without keyword fallback", async () => {
+    await searchApps(
+      "https://apps.apple.com/us/app/example/id123456",
+      "US",
+      "iPhone",
+      10,
+    );
+    expect(apiGet).toHaveBeenCalledTimes(1);
     expect(apiGet).toHaveBeenCalledWith("/api/lookup?country=US&id=123456");
+  });
+
+  it("falls back to keyword search when a numeric lookup misses", async () => {
+    vi.mocked(apiGet).mockResolvedValueOnce(null).mockResolvedValueOnce([]);
+
+    await searchApps("2048", "US", "iPhone", 10);
+
+    expect(apiGet).toHaveBeenNthCalledWith(1, "/api/lookup?country=US&id=2048");
+    expect(apiGet).toHaveBeenNthCalledWith(
+      2,
+      "/api/search?term=2048&country=US&entity=software&limit=10",
+    );
+  });
+
+  it("falls back to keyword search when a bundle-like lookup misses", async () => {
+    vi.mocked(apiGet).mockResolvedValueOnce(null).mockResolvedValueOnce([]);
+
+    await searchApps("1.1.1.1", "US", "iPhone", 25);
+
+    expect(apiGet).toHaveBeenNthCalledWith(
+      1,
+      "/api/lookup?country=US&bundleId=1.1.1.1",
+    );
+    expect(apiGet).toHaveBeenNthCalledWith(
+      2,
+      "/api/search?term=1.1.1.1&country=US&entity=software&limit=25",
+    );
   });
 
   it("uses lookup bundleId for bundle IDs", async () => {

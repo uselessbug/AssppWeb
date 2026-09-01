@@ -19,6 +19,15 @@ export class DownloadError extends Error {
   }
 }
 
+export function isDownloadAuthExpired(error: unknown): boolean {
+  return (
+    error instanceof DownloadError &&
+    (error.code === "2034" ||
+      error.code === "2042" ||
+      error.code === "1008")
+  );
+}
+
 export async function getDownloadInfo(
   account: Account,
   app: Software,
@@ -61,7 +70,7 @@ export async function getDownloadInfo(
       cookies,
     });
 
-    cookies = extractAndMergeCookies(response.rawHeaders, cookies);
+    cookies = extractAndMergeCookies(response.rawHeaders, cookies, requestHost);
 
     if (response.status === 302) {
       const location = response.headers["location"];
@@ -76,12 +85,17 @@ export async function getDownloadInfo(
     }
 
     const dict = parsePlist(response.body) as Record<string, any>;
+    const failureType =
+      dict.failureType === undefined || dict.failureType === null
+        ? undefined
+        : String(dict.failureType);
+    const customerMessage = dict.customerMessage as string | undefined;
 
-    if (dict.failureType) {
-      const failureType = String(dict.failureType);
+    if (customerMessage === "Your password has changed.") {
+      throw new DownloadError(i18n.t("errors.download.passwordExpired"), "2034");
+    }
 
-      // volumeStore intermittently returns 5002; retry once via the
-      // redownload dispatch endpoint, which serves the same payload.
+    if (failureType) {
       if (failureType === RETRYABLE_FAILURE_TYPE && !triedRedownload) {
         triedRedownload = true;
         endpoint = redownloadEndpoint(deviceId);
@@ -91,10 +105,10 @@ export async function getDownloadInfo(
         continue;
       }
 
-      const customerMessage = dict.customerMessage as string | undefined;
       switch (failureType) {
         case "2034":
         case "2042":
+        case "1008":
           throw new DownloadError(
             i18n.t("errors.download.passwordExpired"),
             failureType,
@@ -104,20 +118,12 @@ export async function getDownloadInfo(
             i18n.t("errors.download.licenseRequired"),
             "9610",
           );
-        default: {
-          if (customerMessage === "Your password has changed.") {
-            throw new DownloadError(
-              i18n.t("errors.download.passwordExpired"),
-              failureType,
-            );
-          }
-          // If apple provides a specific string, we fall back to it, otherwise we use the localized default.
+        default:
           throw new DownloadError(
             customerMessage ??
               i18n.t("errors.download.downloadFailed", { failureType }),
             failureType,
           );
-        }
       }
     }
 
@@ -169,7 +175,6 @@ export async function getDownloadInfo(
       throw new DownloadError(i18n.t("errors.download.noSinf"));
     }
 
-    // Build iTunesMetadata plist
     const metadataDict: Record<string, any> = { ...metadata };
     metadataDict["apple-id"] = account.email;
     metadataDict["userName"] = account.email;

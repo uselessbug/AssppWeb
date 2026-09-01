@@ -45,6 +45,7 @@ interface SearchState {
   results: Software[];
   loading: boolean;
   error: string | null;
+  hasSearched: boolean;
   setSearchParam: (
     param: Partial<Pick<SearchState, "term" | "country" | "entity">>,
   ) => void;
@@ -65,6 +66,7 @@ export const useSearch = create<SearchState>((set, get) => ({
   results: [],
   loading: false,
   error: null,
+  hasSearched: false,
   setSearchParam: (param) => {
     if (param.country !== undefined) writeStoredCountry(param.country);
     if (param.entity !== undefined) writeStoredEntity(param.entity);
@@ -82,11 +84,12 @@ export const useSearch = create<SearchState>((set, get) => ({
     set({ loading: true, error: null, term, country, entity });
     try {
       const apps = await searchApps(term, country, entity);
-      set({ results: apps });
+      set({ results: apps, hasSearched: true });
     } catch (e) {
       set({
         error: e instanceof Error ? e.message : "Search failed",
         results: [],
+        hasSearched: true,
       });
     } finally {
       set({ loading: false });
@@ -96,15 +99,17 @@ export const useSearch = create<SearchState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const app = await lookupApp(bundleId, country);
-      set({ results: app ? [app] : [] });
+      set({ results: app ? [app] : [], hasSearched: true });
     } catch (e) {
       set({
         error: e instanceof Error ? e.message : "Lookup failed",
         results: [],
+        hasSearched: true,
       });
     } finally {
       set({ loading: false });
     }
   },
-  clear: () => set({ term: "", results: [], error: null }),
+  clear: () =>
+    set({ term: "", results: [], error: null, hasSearched: false }),
 }));
